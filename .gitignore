@@ -1,0 +1,9 @@
+.DS_Store
+.venv
+__pycache__
+*.pyc
+*.sqlite3
+*.db
+node_modules
+.next
+dist

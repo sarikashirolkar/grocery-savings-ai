@@ -1,0 +1,551 @@
+{
+  "metadata": {
+    "dataset_name": "Grocery Savings AI MVP Demo Seed",
+    "version": "1.0.0",
+    "currency": "INR",
+    "generated_for": "trial purposes",
+    "note": "All users, receipts, and purchase behavior in this file are synthetic."
+  },
+  "users": [
+    {
+      "id": 1,
+      "full_name": "Aarav Sharma",
+      "email": "aarav.sharma.demo@example.com",
+      "household_size": 4,
+      "city": "Bengaluru",
+      "preferred_store": "Dmart",
+      "monthly_budget": 18000
+    },
+    {
+      "id": 2,
+      "full_name": "Neha Iyer",
+      "email": "neha.iyer.demo@example.com",
+      "household_size": 3,
+      "city": "Mumbai",
+      "preferred_store": "BigBasket",
+      "monthly_budget": 14000
+    }
+  ],
+  "stores": [
+    {
+      "id": 1,
+      "store_name": "Dmart",
+      "city": "Bengaluru"
+    },
+    {
+      "id": 2,
+      "store_name": "JioMart",
+      "city": "Bengaluru"
+    },
+    {
+      "id": 3,
+      "store_name": "BigBasket",
+      "city": "Bengaluru"
+    },
+    {
+      "id": 4,
+      "store_name": "Blinkit",
+      "city": "Bengaluru"
+    },
+    {
+      "id": 5,
+      "store_name": "Reliance Fresh",
+      "city": "Bengaluru"
+    }
+  ],
+  "receipts": [
+    {
+      "id": 101,
+      "user_id": 1,
+      "store_name": "Dmart",
+      "purchase_date": "2026-05-02",
+      "receipt_number": "DM-BLR-1001",
+      "total_amount": 2142.0,
+      "upload_type": "image"
+    },
+    {
+      "id": 102,
+      "user_id": 1,
+      "store_name": "Blinkit",
+      "purchase_date": "2026-05-06",
+      "receipt_number": "BLK-BLR-1002",
+      "total_amount": 486.0,
+      "upload_type": "image"
+    },
+    {
+      "id": 103,
+      "user_id": 1,
+      "store_name": "JioMart",
+      "purchase_date": "2026-05-15",
+      "receipt_number": "JIO-BLR-1003",
+      "total_amount": 1635.0,
+      "upload_type": "pdf"
+    },
+    {
+      "id": 201,
+      "user_id": 2,
+      "store_name": "BigBasket",
+      "purchase_date": "2026-05-04",
+      "receipt_number": "BB-MUM-2001",
+      "total_amount": 1918.0,
+      "upload_type": "pdf"
+    },
+    {
+      "id": 202,
+      "user_id": 2,
+      "store_name": "Reliance Fresh",
+      "purchase_date": "2026-05-18",
+      "receipt_number": "RF-MUM-2002",
+      "total_amount": 1284.0,
+      "upload_type": "manual"
+    }
+  ],
+  "receipt_items": [
+    {
+      "receipt_id": 101,
+      "item_name": "Amul Gold Milk 1L",
+      "normalized_item_name": "milk",
+      "brand": "Amul",
+      "category": "Dairy",
+      "quantity": 4,
+      "unit": "packet",
+      "pack_size": "1L",
+      "unit_price": 68.0,
+      "total_price": 272.0,
+      "discount": 0.0,
+      "offer_applied": null,
+      "store_name": "Dmart",
+      "purchase_date": "2026-05-02"
+    },
+    {
+      "receipt_id": 101,
+      "item_name": "Fortune Sunlite Oil 5L",
+      "normalized_item_name": "sunflower oil",
+      "brand": "Fortune",
+      "category": "Cooking Essentials",
+      "quantity": 1,
+      "unit": "jar",
+      "pack_size": "5L",
+      "unit_price": 745.0,
+      "total_price": 745.0,
+      "discount": 55.0,
+      "offer_applied": "Summer saver",
+      "store_name": "Dmart",
+      "purchase_date": "2026-05-02"
+    },
+    {
+      "receipt_id": 101,
+      "item_name": "India Gate Basmati Rice 10kg",
+      "normalized_item_name": "basmati rice",
+      "brand": "India Gate",
+      "category": "Grains",
+      "quantity": 1,
+      "unit": "bag",
+      "pack_size": "10kg",
+      "unit_price": 920.0,
+      "total_price": 920.0,
+      "discount": 80.0,
+      "offer_applied": "Weekend deal",
+      "store_name": "Dmart",
+      "purchase_date": "2026-05-02"
+    },
+    {
+      "receipt_id": 102,
+      "item_name": "Banana Robusta",
+      "normalized_item_name": "banana",
+      "brand": "Fresh",
+      "category": "Fruits",
+      "quantity": 1,
+      "unit": "dozen",
+      "pack_size": "12 pcs",
+      "unit_price": 72.0,
+      "total_price": 72.0,
+      "discount": 0.0,
+      "offer_applied": null,
+      "store_name": "Blinkit",
+      "purchase_date": "2026-05-06"
+    },
+    {
+      "receipt_id": 102,
+      "item_name": "Tomato",
+      "normalized_item_name": "tomato",
+      "brand": "Fresh",
+      "category": "Vegetables",
+      "quantity": 2,
+      "unit": "kg",
+      "pack_size": "1kg",
+      "unit_price": 38.0,
+      "total_price": 76.0,
+      "discount": 0.0,
+      "offer_applied": null,
+      "store_name": "Blinkit",
+      "purchase_date": "2026-05-06"
+    },
+    {
+      "receipt_id": 102,
+      "item_name": "Curd Cup 400g",
+      "normalized_item_name": "curd",
+      "brand": "Nandini",
+      "category": "Dairy",
+      "quantity": 2,
+      "unit": "cup",
+      "pack_size": "400g",
+      "unit_price": 54.0,
+      "total_price": 108.0,
+      "discount": 0.0,
+      "offer_applied": null,
+      "store_name": "Blinkit",
+      "purchase_date": "2026-05-06"
+    },
+    {
+      "receipt_id": 103,
+      "item_name": "Toor Dal 2kg",
+      "normalized_item_name": "toor dal",
+      "brand": "Tata Sampann",
+      "category": "Pulses",
+      "quantity": 1,
+      "unit": "pack",
+      "pack_size": "2kg",
+      "unit_price": 338.0,
+      "total_price": 338.0,
+      "discount": 22.0,
+      "offer_applied": "Bank cashback",
+      "store_name": "JioMart",
+      "purchase_date": "2026-05-15"
+    },
+    {
+      "receipt_id": 103,
+      "item_name": "Aashirvaad Atta 10kg",
+      "normalized_item_name": "wheat flour",
+      "brand": "Aashirvaad",
+      "category": "Grains",
+      "quantity": 1,
+      "unit": "bag",
+      "pack_size": "10kg",
+      "unit_price": 468.0,
+      "total_price": 468.0,
+      "discount": 30.0,
+      "offer_applied": "Combo offer",
+      "store_name": "JioMart",
+      "purchase_date": "2026-05-15"
+    },
+    {
+      "receipt_id": 103,
+      "item_name": "Surf Excel Easy Wash 2kg",
+      "normalized_item_name": "detergent powder",
+      "brand": "Surf Excel",
+      "category": "Home Care",
+      "quantity": 1,
+      "unit": "pack",
+      "pack_size": "2kg",
+      "unit_price": 329.0,
+      "total_price": 329.0,
+      "discount": 41.0,
+      "offer_applied": "Festival offer",
+      "store_name": "JioMart",
+      "purchase_date": "2026-05-15"
+    },
+    {
+      "receipt_id": 201,
+      "item_name": "Country Delight Milk 1L",
+      "normalized_item_name": "milk",
+      "brand": "Country Delight",
+      "category": "Dairy",
+      "quantity": 6,
+      "unit": "packet",
+      "pack_size": "1L",
+      "unit_price": 74.0,
+      "total_price": 444.0,
+      "discount": 0.0,
+      "offer_applied": null,
+      "store_name": "BigBasket",
+      "purchase_date": "2026-05-04"
+    },
+    {
+      "receipt_id": 201,
+      "item_name": "Brown Bread",
+      "normalized_item_name": "bread",
+      "brand": "Harvest Gold",
+      "category": "Bakery",
+      "quantity": 2,
+      "unit": "loaf",
+      "pack_size": "400g",
+      "unit_price": 48.0,
+      "total_price": 96.0,
+      "discount": 8.0,
+      "offer_applied": "Buy 2 save 8",
+      "store_name": "BigBasket",
+      "purchase_date": "2026-05-04"
+    },
+    {
+      "receipt_id": 201,
+      "item_name": "Eggs",
+      "normalized_item_name": "eggs",
+      "brand": "Farm Fresh",
+      "category": "Protein",
+      "quantity": 2,
+      "unit": "tray",
+      "pack_size": "12 pcs",
+      "unit_price": 86.0,
+      "total_price": 172.0,
+      "discount": 0.0,
+      "offer_applied": null,
+      "store_name": "BigBasket",
+      "purchase_date": "2026-05-04"
+    },
+    {
+      "receipt_id": 202,
+      "item_name": "Sona Masoori Rice 5kg",
+      "normalized_item_name": "sona masoori rice",
+      "brand": "Fortune",
+      "category": "Grains",
+      "quantity": 1,
+      "unit": "bag",
+      "pack_size": "5kg",
+      "unit_price": 365.0,
+      "total_price": 365.0,
+      "discount": 15.0,
+      "offer_applied": "Member price",
+      "store_name": "Reliance Fresh",
+      "purchase_date": "2026-05-18"
+    },
+    {
+      "receipt_id": 202,
+      "item_name": "Potato",
+      "normalized_item_name": "potato",
+      "brand": "Fresh",
+      "category": "Vegetables",
+      "quantity": 3,
+      "unit": "kg",
+      "pack_size": "1kg",
+      "unit_price": 32.0,
+      "total_price": 96.0,
+      "discount": 0.0,
+      "offer_applied": null,
+      "store_name": "Reliance Fresh",
+      "purchase_date": "2026-05-18"
+    },
+    {
+      "receipt_id": 202,
+      "item_name": "Onion",
+      "normalized_item_name": "onion",
+      "brand": "Fresh",
+      "category": "Vegetables",
+      "quantity": 2,
+      "unit": "kg",
+      "pack_size": "1kg",
+      "unit_price": 36.0,
+      "total_price": 72.0,
+      "discount": 0.0,
+      "offer_applied": null,
+      "store_name": "Reliance Fresh",
+      "purchase_date": "2026-05-18"
+    }
+  ],
+  "user_purchase_patterns": [
+    {
+      "user_id": 1,
+      "normalized_item_name": "milk",
+      "average_purchase_quantity": 4,
+      "average_price_paid": 68.0,
+      "purchase_frequency_days": 4,
+      "preferred_store": "Dmart",
+      "predicted_next_purchase_date": "2026-06-12",
+      "confidence_score": 0.93
+    },
+    {
+      "user_id": 1,
+      "normalized_item_name": "basmati rice",
+      "average_purchase_quantity": 1,
+      "average_price_paid": 920.0,
+      "purchase_frequency_days": 30,
+      "preferred_store": "Dmart",
+      "predicted_next_purchase_date": "2026-06-30",
+      "confidence_score": 0.81
+    },
+    {
+      "user_id": 1,
+      "normalized_item_name": "detergent powder",
+      "average_purchase_quantity": 1,
+      "average_price_paid": 329.0,
+      "purchase_frequency_days": 28,
+      "preferred_store": "JioMart",
+      "predicted_next_purchase_date": "2026-06-13",
+      "confidence_score": 0.74
+    },
+    {
+      "user_id": 2,
+      "normalized_item_name": "milk",
+      "average_purchase_quantity": 6,
+      "average_price_paid": 74.0,
+      "purchase_frequency_days": 3,
+      "preferred_store": "BigBasket",
+      "predicted_next_purchase_date": "2026-06-10",
+      "confidence_score": 0.95
+    },
+    {
+      "user_id": 2,
+      "normalized_item_name": "eggs",
+      "average_purchase_quantity": 2,
+      "average_price_paid": 86.0,
+      "purchase_frequency_days": 7,
+      "preferred_store": "BigBasket",
+      "predicted_next_purchase_date": "2026-06-11",
+      "confidence_score": 0.84
+    }
+  ],
+  "predicted_baskets": [
+    {
+      "id": 1001,
+      "user_id": 1,
+      "prediction_month": "2026-06",
+      "expected_total_spend": 2780.0
+    },
+    {
+      "id": 2001,
+      "user_id": 2,
+      "prediction_month": "2026-06",
+      "expected_total_spend": 2310.0
+    }
+  ],
+  "predicted_basket_items": [
+    {
+      "predicted_basket_id": 1001,
+      "item_name": "Milk",
+      "predicted_quantity": 8,
+      "expected_purchase_date": "2026-06-12",
+      "average_price_usually_paid": 68.0,
+      "confidence_score": 0.93
+    },
+    {
+      "predicted_basket_id": 1001,
+      "item_name": "Basmati Rice",
+      "predicted_quantity": 1,
+      "expected_purchase_date": "2026-06-30",
+      "average_price_usually_paid": 920.0,
+      "confidence_score": 0.81
+    },
+    {
+      "predicted_basket_id": 1001,
+      "item_name": "Detergent Powder",
+      "predicted_quantity": 1,
+      "expected_purchase_date": "2026-06-13",
+      "average_price_usually_paid": 329.0,
+      "confidence_score": 0.74
+    },
+    {
+      "predicted_basket_id": 2001,
+      "item_name": "Milk",
+      "predicted_quantity": 10,
+      "expected_purchase_date": "2026-06-10",
+      "average_price_usually_paid": 74.0,
+      "confidence_score": 0.95
+    },
+    {
+      "predicted_basket_id": 2001,
+      "item_name": "Eggs",
+      "predicted_quantity": 2,
+      "expected_purchase_date": "2026-06-11",
+      "average_price_usually_paid": 86.0,
+      "confidence_score": 0.84
+    }
+  ],
+  "store_prices": [
+    {
+      "store_name": "Dmart",
+      "item_name": "Milk",
+      "brand": "Amul",
+      "pack_size": "1L",
+      "regular_price": 70.0,
+      "offer_price": 67.0,
+      "discount_percentage": 4.29,
+      "offer_description": "Member price",
+      "valid_from": "2026-06-01",
+      "valid_to": "2026-06-15"
+    },
+    {
+      "store_name": "Blinkit",
+      "item_name": "Milk",
+      "brand": "Amul",
+      "pack_size": "1L",
+      "regular_price": 72.0,
+      "offer_price": 68.0,
+      "discount_percentage": 5.56,
+      "offer_description": "10 min essentials offer",
+      "valid_from": "2026-06-01",
+      "valid_to": "2026-06-10"
+    },
+    {
+      "store_name": "JioMart",
+      "item_name": "Basmati Rice",
+      "brand": "India Gate",
+      "pack_size": "10kg",
+      "regular_price": 960.0,
+      "offer_price": 884.0,
+      "discount_percentage": 7.92,
+      "offer_description": "Weekend mega sale",
+      "valid_from": "2026-06-08",
+      "valid_to": "2026-06-16"
+    },
+    {
+      "store_name": "Dmart",
+      "item_name": "Basmati Rice",
+      "brand": "India Gate",
+      "pack_size": "10kg",
+      "regular_price": 950.0,
+      "offer_price": 899.0,
+      "discount_percentage": 5.37,
+      "offer_description": "Store special",
+      "valid_from": "2026-06-01",
+      "valid_to": "2026-06-30"
+    },
+    {
+      "store_name": "BigBasket",
+      "item_name": "Detergent Powder",
+      "brand": "Surf Excel",
+      "pack_size": "2kg",
+      "regular_price": 342.0,
+      "offer_price": 301.0,
+      "discount_percentage": 11.99,
+      "offer_description": "Top deal",
+      "valid_from": "2026-06-05",
+      "valid_to": "2026-06-20"
+    },
+    {
+      "store_name": "Reliance Fresh",
+      "item_name": "Eggs",
+      "brand": "Farm Fresh",
+      "pack_size": "12 pcs",
+      "regular_price": 88.0,
+      "offer_price": 80.0,
+      "discount_percentage": 9.09,
+      "offer_description": "Fresh picks",
+      "valid_from": "2026-06-07",
+      "valid_to": "2026-06-14"
+    }
+  ],
+  "savings_recommendations": [
+    {
+      "user_id": 1,
+      "prediction_month": "2026-06",
+      "best_single_store": "Dmart",
+      "best_multi_store_cost": 2543.0,
+      "best_single_store_cost": 2638.0,
+      "optimized_spend": 2543.0,
+      "expected_spend": 2780.0,
+      "total_estimated_saving": 237.0,
+      "savings_percentage": 8.53
+    },
+    {
+      "user_id": 2,
+      "prediction_month": "2026-06",
+      "best_single_store": "Reliance Fresh",
+      "best_multi_store_cost": 2186.0,
+      "best_single_store_cost": 2218.0,
+      "optimized_spend": 2186.0,
+      "expected_spend": 2310.0,
+      "total_estimated_saving": 124.0,
+      "savings_percentage": 5.37
+    }
+  ]
+}
