@@ -5,8 +5,9 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.receipt import Receipt, ReceiptItem
 from app.models.user import User
-from app.schemas.receipt import ReceiptItemCreate, ReceiptItemUpdate, ReceiptOut, ReceiptUpload
-from app.services.extraction import extract_receipt_items
+from app.schemas.receipt import BatchReceiptImportOut, ReceiptItemCreate, ReceiptItemUpdate, ReceiptOut, ReceiptUpload
+from app.services.analytics import analyze_patterns, current_prediction_month, generate_prediction
+from app.services.extraction import extract_receipt_batch, extract_receipt_items
 from app.services.file_storage import save_receipt_file
 from app.services.ocr import extract_text_from_file, validate_upload
 
@@ -20,6 +21,66 @@ async def _read_validated_upload(file: UploadFile) -> tuple[bytes, str | None]:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return content, file.content_type
+
+
+def _normalize_extracted_batch_entry(entry: dict) -> dict:
+    purchase_date = entry.get("purchase_date")
+    if not hasattr(purchase_date, "isoformat"):
+        purchase_date = ReceiptUpload.model_validate(
+            {
+                "store_name": entry.get("store_name") or "Imported PDF",
+                "purchase_date": purchase_date or "2026-01-01",
+                "receipt_number": entry.get("receipt_number"),
+                "upload_type": "batch_pdf",
+                "raw_text": "",
+                "total_amount": entry.get("total_amount") or 0,
+                "items": [],
+            }
+        ).purchase_date
+    return {
+        **entry,
+        "purchase_date": purchase_date,
+    }
+
+
+def _persist_receipt(
+    *,
+    db: Session,
+    current_user: User,
+    store_name: str,
+    purchase_date,
+    receipt_number: str | None,
+    upload_type: str,
+    total_amount: float,
+    raw_text: str | None,
+    file_name: str | None = None,
+    file_path: str | None = None,
+    mime_type: str | None = None,
+    file_size_bytes: int | None = None,
+    extraction_method: str | None = None,
+    items: list[ReceiptItemCreate],
+) -> Receipt:
+    receipt = Receipt(
+        user_id=current_user.id,
+        store_name=store_name,
+        purchase_date=purchase_date,
+        receipt_number=receipt_number,
+        upload_type=upload_type,
+        total_amount=total_amount,
+        raw_text=raw_text,
+        file_name=file_name,
+        file_path=file_path,
+        mime_type=mime_type,
+        file_size_bytes=file_size_bytes,
+        extraction_method=extraction_method,
+    )
+    db.add(receipt)
+    db.flush()
+    for item in items:
+        db.add(ReceiptItem(receipt_id=receipt.id, **item.model_dump()))
+    if not receipt.total_amount:
+        receipt.total_amount = round(sum(item.total_price for item in items), 2)
+    return receipt
 
 
 @router.post("/upload", response_model=ReceiptOut)
@@ -63,8 +124,9 @@ async def upload_receipt(
         extraction_method = "text_manual"
 
     items = extract_receipt_items(extracted_text or "", store_name=store_name, purchase_date=parsed_date)
-    receipt = Receipt(
-        user_id=current_user.id,
+    receipt = _persist_receipt(
+        db=db,
+        current_user=current_user,
         store_name=store_name,
         purchase_date=parsed_date,
         receipt_number=receipt_number,
@@ -76,14 +138,70 @@ async def upload_receipt(
         mime_type=mime_type,
         file_size_bytes=file_size_bytes,
         extraction_method=extraction_method,
+        items=items,
     )
-    db.add(receipt)
-    db.flush()
-    for item in items:
-        db.add(ReceiptItem(receipt_id=receipt.id, **item.model_dump()))
     db.commit()
     db.refresh(receipt)
     return receipt
+
+
+@router.post("/upload-batch-pdf", response_model=BatchReceiptImportOut)
+async def upload_receipt_batch_pdf(
+    purchase_date_fallback: str | None = Form(default=None),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not (file.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Batch import requires a PDF file.")
+    file_content, mime_type = await _read_validated_upload(file)
+    file_path = save_receipt_file(user_id=current_user.id, original_name=file.filename, content=file_content)
+    extracted_text = await extract_text_from_file(file_name=file.filename, content=file_content)
+    fallback_date = ReceiptUpload.model_validate(
+        {
+            "store_name": "Imported PDF",
+            "purchase_date": purchase_date_fallback or "2026-01-01",
+            "upload_type": "batch_pdf",
+            "raw_text": "",
+            "total_amount": 0,
+            "items": [],
+        }
+    ).purchase_date if purchase_date_fallback else None
+    extracted_receipts = extract_receipt_batch(extracted_text, fallback_purchase_date=fallback_date)
+    if not extracted_receipts:
+        raise HTTPException(status_code=400, detail="No receipts could be extracted from the PDF.")
+    receipts: list[Receipt] = []
+    for raw_entry in extracted_receipts:
+        entry = _normalize_extracted_batch_entry(raw_entry)
+        receipt = _persist_receipt(
+            db=db,
+            current_user=current_user,
+            store_name=entry["store_name"],
+            purchase_date=entry["purchase_date"],
+            receipt_number=entry["receipt_number"],
+            upload_type="batch_pdf",
+            total_amount=entry["total_amount"],
+            raw_text=extracted_text,
+            file_name=file.filename,
+            file_path=file_path,
+            mime_type=mime_type,
+            file_size_bytes=len(file_content),
+            extraction_method="pdf_batch_llm",
+            items=entry["items"],
+        )
+        receipts.append(receipt)
+    db.commit()
+    for receipt in receipts:
+        db.refresh(receipt)
+
+    analyze_patterns(db, current_user.id)
+    prediction = generate_prediction(db, current_user.id, current_prediction_month())
+    return BatchReceiptImportOut(
+        imported_count=len(receipts),
+        receipts=receipts,
+        extracted_receipt_count=len(extracted_receipts),
+        prediction_month=prediction.prediction_month,
+    )
 
 
 @router.post("/preview")
@@ -118,8 +236,9 @@ def create_receipt(
     current_user: User = Depends(get_current_user),
 ):
     items = payload.items or extract_receipt_items(payload.raw_text or "", store_name=payload.store_name, purchase_date=payload.purchase_date)
-    receipt = Receipt(
-        user_id=current_user.id,
+    receipt = _persist_receipt(
+        db=db,
+        current_user=current_user,
         store_name=payload.store_name,
         purchase_date=payload.purchase_date,
         receipt_number=payload.receipt_number,
@@ -127,13 +246,8 @@ def create_receipt(
         raw_text=payload.raw_text,
         total_amount=payload.total_amount,
         extraction_method="manual",
+        items=items,
     )
-    db.add(receipt)
-    db.flush()
-    for item in items:
-        db.add(ReceiptItem(receipt_id=receipt.id, **item.model_dump()))
-    if not payload.total_amount:
-        receipt.total_amount = round(sum(item.total_price for item in items), 2)
     db.commit()
     db.refresh(receipt)
     return receipt

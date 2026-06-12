@@ -104,6 +104,13 @@ export type Receipt = {
   items: ReceiptItem[];
 };
 
+export type BatchReceiptImport = {
+  imported_count: number;
+  receipts: Receipt[];
+  extracted_receipt_count: number;
+  prediction_month?: string | null;
+};
+
 export type Pattern = {
   id: number;
   normalized_item_name: string;

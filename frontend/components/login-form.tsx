@@ -49,9 +49,7 @@ export function LoginForm({ onLoggedIn }: { onLoggedIn: (token: string) => void 
         <div className="py-12">
           <p className="eyebrow text-blush">Primary workflow</p>
           <h1 className="mt-4 max-w-xl font-serif text-5xl font-medium leading-tight tracking-[-0.03em] md:text-6xl">
-            Predict the basket.
-            <br />
-            <span className="italic text-blush">Price every outlet.</span>
+            Find the best price for your groceries!
           </h1>
           <p className="mt-6 max-w-md text-sm leading-7 text-card/75">
             Use the seeded workspace to explore receipt-driven predictions, item-by-item price comparisons, and the ledger-style savings dashboard from the uploaded design pack.

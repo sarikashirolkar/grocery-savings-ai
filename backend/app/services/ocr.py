@@ -28,6 +28,21 @@ class TesseractOCRAdapter(OCRAdapter):
             return txt_path.read_text(encoding="utf-8", errors="ignore")
 
 
+class PDFTextAdapter(OCRAdapter):
+    async def extract_text(self, *, file_name: str | None, content: bytes) -> str:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            input_path = Path(tmpdir) / (file_name or "upload.pdf")
+            output_path = Path(tmpdir) / "output.txt"
+            input_path.write_bytes(content)
+            subprocess.run(
+                ["pdftotext", "-layout", str(input_path), str(output_path)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return output_path.read_text(encoding="utf-8", errors="ignore")
+
+
 class PlainTextFallbackAdapter(OCRAdapter):
     async def extract_text(self, *, file_name: str | None, content: bytes) -> str:
         try:
@@ -50,4 +65,7 @@ def validate_upload(*, file_name: str | None, content_type: str | None, size_byt
 
 
 async def extract_text_from_file(*, file_name: str | None, content: bytes) -> str:
+    suffix = Path(file_name or "").suffix.lower()
+    if suffix == ".pdf" and shutil.which("pdftotext"):
+        return await PDFTextAdapter().extract_text(file_name=file_name, content=content)
     return await _adapter().extract_text(file_name=file_name, content=content)

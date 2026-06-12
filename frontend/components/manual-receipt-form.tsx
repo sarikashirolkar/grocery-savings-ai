@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { createManualReceipt, uploadReceipt } from "@/lib/api";
+import { createManualReceipt, uploadReceipt, uploadReceiptBatchPdf } from "@/lib/api";
 
 
 type FormValues = {
@@ -12,6 +12,8 @@ type FormValues = {
   receipt_number: string;
   raw_text: string;
   file: FileList;
+  batch_pdf: FileList;
+  purchase_date_fallback: string;
 };
 
 
@@ -21,6 +23,7 @@ export function ManualReceiptForm({ token, onCreated }: { token: string; onCreat
     defaultValues: {
       store_name: "Blinkit",
       purchase_date: new Date().toISOString().slice(0, 10),
+      purchase_date_fallback: new Date().toISOString().slice(0, 10),
       receipt_number: "",
       raw_text: "Amul Gold Milk 1L 2 x 68\nTomato 1 x 38\nBanana Robusta 1 x 72"
     }
@@ -29,6 +32,17 @@ export function ManualReceiptForm({ token, onCreated }: { token: string; onCreat
   const onSubmit = handleSubmit(async (values) => {
     setMessage(null);
     const file = values.file?.[0];
+    const batchPdf = values.batch_pdf?.[0];
+    if (batchPdf) {
+      const result = await uploadReceiptBatchPdf(token, {
+        file: batchPdf,
+        purchase_date_fallback: values.purchase_date_fallback
+      });
+      reset();
+      setMessage(`Imported ${result.imported_count} receipts from the PDF and refreshed the prediction pipeline.`);
+      onCreated();
+      return;
+    }
     if (file) {
       await uploadReceipt(token, {
         store_name: values.store_name,
@@ -61,6 +75,16 @@ export function ManualReceiptForm({ token, onCreated }: { token: string; onCreat
         <p className="mt-3 text-sm text-steel">Paste OCR-like lines in `Item Qty x Price` format for quick trial testing.</p>
       </div>
       <form className="space-y-3" onSubmit={onSubmit}>
+        <div className="soft-card p-4">
+          <h3 className="eyebrow">Batch PDF import</h3>
+          <p className="mt-2 text-sm text-steel">
+            Upload one PDF containing many grocery receipts. The app will extract each receipt, save them separately, and refresh purchase patterns automatically.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-[1.4fr_0.9fr]">
+            <input className="input" type="file" accept=".pdf" {...register("batch_pdf")} />
+            <input className="input" type="date" {...register("purchase_date_fallback")} />
+          </div>
+        </div>
         <div className="grid gap-3 md:grid-cols-3">
           <input className="input" {...register("store_name", { required: true })} placeholder="Store" />
           <input className="input" type="date" {...register("purchase_date", { required: true })} />

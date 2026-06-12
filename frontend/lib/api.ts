@@ -1,5 +1,6 @@
 import type {
   BuyPlanSummary,
+  BatchReceiptImport,
   LoginResponse,
   NamedValue,
   Pattern,
@@ -14,12 +15,20 @@ import type {
   Summary,
 } from "@/lib/types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+function getApiBaseUrl() {
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return process.env.NEXT_PUBLIC_API_BASE_URL;
+  }
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  return "http://localhost:8000";
+}
 
 export class AuthError extends Error {}
 
 async function request<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...options,
     credentials: "include",
     headers: {
@@ -148,7 +157,7 @@ export async function uploadReceipt(
   if (payload.file) {
     formData.set("file", payload.file);
   }
-  const response = await fetch(`${API_BASE_URL}/receipts/upload`, {
+  const response = await fetch(`${getApiBaseUrl()}/receipts/upload`, {
     method: "POST",
     credentials: "include",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -163,6 +172,35 @@ export async function uploadReceipt(
     throw new Error((await response.text()) || "Upload failed");
   }
   return response.json() as Promise<Receipt>;
+}
+
+export async function uploadReceiptBatchPdf(
+  token: string,
+  payload: {
+    file: File;
+    purchase_date_fallback?: string;
+  }
+) {
+  const formData = new FormData();
+  formData.set("file", payload.file);
+  if (payload.purchase_date_fallback) {
+    formData.set("purchase_date_fallback", payload.purchase_date_fallback);
+  }
+  const response = await fetch(`${getApiBaseUrl()}/receipts/upload-batch-pdf`, {
+    method: "POST",
+    credentials: "include",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+    cache: "no-store"
+  });
+  if (response.status === 401) {
+    window.localStorage.removeItem("grocery-token");
+    throw new AuthError("Your session expired. Please sign in again.");
+  }
+  if (!response.ok) {
+    throw new Error((await response.text()) || "Batch PDF upload failed");
+  }
+  return response.json() as Promise<BatchReceiptImport>;
 }
 
 export function getShoppingList(token: string) {
@@ -202,7 +240,7 @@ export function chooseSingleStoreForAll(token: string, storeName: string) {
 }
 
 async function downloadProtectedFile(path: string, token: string, filename: string) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     credentials: "include",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     cache: "no-store"

@@ -54,3 +54,10 @@ class ReceiptOut(BaseModel):
     raw_text: str | None = None
     created_at: datetime
     items: list[ReceiptItemBase]
+
+
+class BatchReceiptImportOut(BaseModel):
+    imported_count: int
+    receipts: list[ReceiptOut]
+    extracted_receipt_count: int
+    prediction_month: str | None = None
