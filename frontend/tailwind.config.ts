@@ -5,17 +5,25 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#14213d",
-        saffron: "#fca311",
-        mist: "#edf2f4",
-        mint: "#b7e4c7",
-        coral: "#ff6b6b"
+        canvas: "#ECEAE8",
+        card: "#FFFFFF",
+        blush: "#FFDBDA",
+        rose: "#DB7F8E",
+        roseDeep: "#C2667A",
+        slate: "#D5C5C8",
+        steel: "#9DA3A4",
+        taupe: "#604D53",
+        ink: "#43383C",
+        line: "rgba(157,163,164,0.45)",
+        lineSoft: "rgba(157,163,164,0.26)"
       },
       fontFamily: {
-        sans: ["ui-sans-serif", "system-ui", "sans-serif"]
+        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        serif: ["var(--font-serif)", "Georgia", "serif"]
       },
       boxShadow: {
-        panel: "0 18px 45px rgba(20, 33, 61, 0.08)"
+        panel: "0 22px 44px rgba(96, 77, 83, 0.08)",
+        inset: "inset 0 1px 0 rgba(255,255,255,0.55)"
       }
     }
   },

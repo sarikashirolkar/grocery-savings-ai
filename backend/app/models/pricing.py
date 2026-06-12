@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import Date, Float, ForeignKey, String
+from sqlalchemy import Boolean, Date, Float, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -12,6 +12,9 @@ class Store(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     store_name: Mapped[str] = mapped_column(String(120), unique=True, index=True)
     city: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    delivery_fee: Mapped[float] = mapped_column(Float, default=0)
+    travel_cost: Mapped[float] = mapped_column(Float, default=0)
+    convenience_index: Mapped[float] = mapped_column(Float, default=0.5)
 
 
 class StorePrice(Base):
@@ -29,6 +32,8 @@ class StorePrice(Base):
     offer_description: Mapped[str | None] = mapped_column(String(255), nullable=True)
     valid_from: Mapped[date] = mapped_column(Date)
     valid_to: Mapped[date] = mapped_column(Date)
+    in_stock: Mapped[bool] = mapped_column(Boolean, default=True)
+    stock_status: Mapped[str] = mapped_column(String(50), default="in_stock")
 
 
 class UserPurchasePattern(Base):
@@ -65,5 +70,6 @@ class SavingsRecommendation(Base):
     total_estimated_saving: Mapped[float] = mapped_column(Float, default=0)
     savings_percentage: Mapped[float] = mapped_column(Float, default=0)
     convenience_note: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    recommendation_strategy: Mapped[str] = mapped_column(String(120), default="balanced")
 
     user = relationship("User", back_populates="recommendations")

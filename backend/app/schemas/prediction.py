@@ -9,6 +9,7 @@ class PredictedBasketItemOut(BaseModel):
     id: int
     item_name: str
     normalized_item_name: str
+    category: str | None = None
     predicted_quantity: float
     expected_purchase_date: date
     average_price_usually_paid: float

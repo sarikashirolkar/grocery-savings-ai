@@ -6,27 +6,105 @@
   color-scheme: light;
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(252, 163, 17, 0.25), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(183, 228, 199, 0.35), transparent 30%),
-    #f8fafc;
-  color: #14213d;
+    radial-gradient(circle at top left, rgba(255, 219, 218, 0.8), transparent 28%),
+    linear-gradient(180deg, #f2efed 0%, #eceae8 38%, #e6e0de 100%);
+  color: #43383c;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(96, 77, 83, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(96, 77, 83, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 88%);
+}
+
+::selection {
+  background: #ffdbda;
+}
+
+.font-display {
+  font-family: var(--font-serif), Georgia, serif;
 }
 
 .panel {
-  @apply rounded-3xl border border-white/60 bg-white/85 p-6 shadow-panel backdrop-blur;
+  @apply rounded-md border border-line bg-card shadow-panel;
 }
 
 .btn-primary {
-  @apply rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-saffron hover:text-ink;
+  @apply rounded-md border border-rose bg-rose px-4 py-2 text-sm font-semibold text-card transition hover:bg-roseDeep hover:border-roseDeep;
 }
 
 .btn-secondary {
-  @apply rounded-full border border-ink/20 px-4 py-2 text-sm font-semibold text-ink transition hover:border-saffron hover:bg-saffron/10;
+  @apply rounded-md border border-taupe bg-transparent px-4 py-2 text-sm font-semibold text-taupe transition hover:bg-taupe hover:text-card;
+}
+
+.btn-quiet {
+  @apply rounded-md border border-line bg-card px-4 py-2 text-sm font-semibold text-taupe transition hover:border-steel hover:bg-canvas;
 }
 
 .input {
-  @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none ring-0 transition focus:border-saffron;
+  @apply w-full rounded-md border border-line bg-card px-4 py-3 text-sm text-taupe outline-none ring-0 transition placeholder:text-steel focus:border-rose;
+}
+
+.eyebrow {
+  @apply text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-steel;
+}
+
+.page-head {
+  @apply flex flex-col gap-5 border-b border-lineSoft pb-6 lg:flex-row lg:items-end lg:justify-between;
+}
+
+.page-title {
+  @apply font-serif text-4xl font-medium leading-tight tracking-[-0.02em] text-taupe md:text-5xl;
+}
+
+.page-copy {
+  @apply mt-3 max-w-3xl text-sm leading-6 text-steel;
+}
+
+.data-table {
+  @apply min-w-full border-separate border-spacing-0 text-left text-sm;
+}
+
+.data-table thead {
+  @apply text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-steel;
+}
+
+.data-table th {
+  @apply border-b border-lineSoft pb-3 font-semibold;
+}
+
+.data-table td {
+  @apply border-b border-lineSoft py-4 align-top;
+}
+
+.chip {
+  @apply inline-flex items-center gap-2 rounded-md border border-line bg-card px-3 py-1.5 text-xs font-semibold text-taupe;
+}
+
+.soft-card {
+  @apply rounded-md border border-lineSoft bg-canvas/70;
+}
+
+@media (max-width: 768px) {
+  .page-title {
+    @apply text-3xl;
+  }
 }

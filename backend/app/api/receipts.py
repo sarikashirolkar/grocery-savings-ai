@@ -6,10 +6,20 @@ from app.db.session import get_db
 from app.models.receipt import Receipt, ReceiptItem
 from app.models.user import User
 from app.schemas.receipt import ReceiptItemCreate, ReceiptItemUpdate, ReceiptOut, ReceiptUpload
-from app.services.ocr import extract_text_from_file
-from app.services.parser import parse_receipt_text
+from app.services.extraction import extract_receipt_items
+from app.services.file_storage import save_receipt_file
+from app.services.ocr import extract_text_from_file, validate_upload
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
+
+
+async def _read_validated_upload(file: UploadFile) -> tuple[bytes, str | None]:
+    content = await file.read()
+    try:
+        validate_upload(file_name=file.filename, content_type=file.content_type, size_bytes=len(content))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return content, file.content_type
 
 
 @router.post("/upload", response_model=ReceiptOut)
@@ -38,11 +48,21 @@ async def upload_receipt(
 
     extracted_text = raw_text
     file_name = None
+    file_path = None
+    mime_type = None
+    file_size_bytes = None
+    extraction_method = "manual"
     if file is not None:
         file_name = file.filename
-        extracted_text = await extract_text_from_file(file)
+        file_content, mime_type = await _read_validated_upload(file)
+        file_path = save_receipt_file(user_id=current_user.id, original_name=file.filename, content=file_content)
+        file_size_bytes = len(file_content)
+        extracted_text = await extract_text_from_file(file_name=file.filename, content=file_content)
+        extraction_method = "ocr_upload"
+    elif extracted_text:
+        extraction_method = "text_manual"
 
-    items = parse_receipt_text(extracted_text or "", store_name=store_name, purchase_date=parsed_date)
+    items = extract_receipt_items(extracted_text or "", store_name=store_name, purchase_date=parsed_date)
     receipt = Receipt(
         user_id=current_user.id,
         store_name=store_name,
@@ -52,6 +72,10 @@ async def upload_receipt(
         total_amount=total_amount,
         raw_text=extracted_text,
         file_name=file_name,
+        file_path=file_path,
+        mime_type=mime_type,
+        file_size_bytes=file_size_bytes,
+        extraction_method=extraction_method,
     )
     db.add(receipt)
     db.flush()
@@ -62,12 +86,38 @@ async def upload_receipt(
     return receipt
 
 
+@router.post("/preview")
+async def preview_receipt(
+    store_name: str = Form(...),
+    purchase_date: str = Form(...),
+    raw_text: str | None = Form(default=None),
+    file: UploadFile | None = File(default=None),
+):
+    parsed_date = ReceiptUpload.model_validate(
+        {
+            "store_name": store_name,
+            "purchase_date": purchase_date,
+            "upload_type": "preview",
+            "raw_text": raw_text,
+            "total_amount": 0,
+            "items": [],
+        }
+    ).purchase_date
+    extracted_text = raw_text
+    if file is not None:
+        file_content, _ = await _read_validated_upload(file)
+        extracted_text = await extract_text_from_file(file_name=file.filename, content=file_content)
+    items = extract_receipt_items(extracted_text or "", store_name=store_name, purchase_date=parsed_date)
+    return {"raw_text": extracted_text, "items": [item.model_dump(mode="json") for item in items]}
+
+
 @router.post("", response_model=ReceiptOut)
 def create_receipt(
     payload: ReceiptUpload,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    items = payload.items or extract_receipt_items(payload.raw_text or "", store_name=payload.store_name, purchase_date=payload.purchase_date)
     receipt = Receipt(
         user_id=current_user.id,
         store_name=payload.store_name,
@@ -76,11 +126,14 @@ def create_receipt(
         upload_type=payload.upload_type,
         raw_text=payload.raw_text,
         total_amount=payload.total_amount,
+        extraction_method="manual",
     )
     db.add(receipt)
     db.flush()
-    for item in payload.items:
+    for item in items:
         db.add(ReceiptItem(receipt_id=receipt.id, **item.model_dump()))
+    if not payload.total_amount:
+        receipt.total_amount = round(sum(item.total_price for item in items), 2)
     db.commit()
     db.refresh(receipt)
     return receipt

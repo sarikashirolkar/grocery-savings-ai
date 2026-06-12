@@ -8,13 +8,13 @@ from app.core.security import get_password_hash
 from app.models.prediction import PredictedBasket, PredictedBasketItem
 from app.models.pricing import SavingsRecommendation, Store, StorePrice, UserPurchasePattern
 from app.models.receipt import Receipt, ReceiptItem
+from app.models.shopping import ShoppingList, ShoppingListItem, UserSelectedStoreItem
+from app.models.system import AppSetting
 from app.models.user import User
 from app.services.analytics import analyze_patterns, current_prediction_month, generate_prediction, generate_recommendation
 from app.services.parser import normalize_name
 
-DEMO_STORES = ["Dmart", "JioMart", "BigBasket", "Blinkit", "Reliance Fresh"]
-
-DEMO_ITEMS = [
+INDIA_ITEMS = [
     {"item_name": "Amul Gold Milk 1L", "brand": "Amul", "category": "Dairy", "unit": "packet", "pack_size": "1L", "base_price": 68},
     {"item_name": "Nandini Curd 400g", "brand": "Nandini", "category": "Dairy", "unit": "cup", "pack_size": "400g", "base_price": 54},
     {"item_name": "Country Delight Paneer 200g", "brand": "Country Delight", "category": "Dairy", "unit": "pack", "pack_size": "200g", "base_price": 95},
@@ -67,45 +67,135 @@ DEMO_ITEMS = [
     {"item_name": "Jam 500g", "brand": "Kissan", "category": "Breakfast", "unit": "jar", "pack_size": "500g", "base_price": 132},
 ]
 
+AUSTRALIA_ITEMS = [
+    {"item_name": "A2 Milk Full Cream 2L", "brand": "A2 Milk", "category": "Dairy", "unit": "bottle", "pack_size": "2L", "base_price": 4.9},
+    {"item_name": "Chobani Greek Yogurt 907g", "brand": "Chobani", "category": "Dairy", "unit": "tub", "pack_size": "907g", "base_price": 6.8},
+    {"item_name": "Bega Tasty Cheese 500g", "brand": "Bega", "category": "Dairy", "unit": "block", "pack_size": "500g", "base_price": 7.2},
+    {"item_name": "Tip Top The One Bread 700g", "brand": "Tip Top", "category": "Bakery", "unit": "loaf", "pack_size": "700g", "base_price": 4.1},
+    {"item_name": "Free Range Eggs 12 Pack", "brand": "Sunny Queen", "category": "Protein", "unit": "carton", "pack_size": "12 pcs", "base_price": 6.9},
+    {"item_name": "Chicken Breast Fillets 1kg", "brand": "Macro", "category": "Protein", "unit": "pack", "pack_size": "1kg", "base_price": 13.5},
+    {"item_name": "SunRice Jasmine Rice 5kg", "brand": "SunRice", "category": "Grains", "unit": "bag", "pack_size": "5kg", "base_price": 13.0},
+    {"item_name": "Woolworths Long Grain Rice 5kg", "brand": "Woolworths", "category": "Grains", "unit": "bag", "pack_size": "5kg", "base_price": 10.5},
+    {"item_name": "Helga's Wraps 8 Pack", "brand": "Helga's", "category": "Grains", "unit": "pack", "pack_size": "8 wraps", "base_price": 4.8},
+    {"item_name": "Uncle Tobys Oats 1kg", "brand": "Uncle Tobys", "category": "Breakfast", "unit": "pack", "pack_size": "1kg", "base_price": 3.9},
+    {"item_name": "Weet-Bix 1.2kg", "brand": "Sanitarium", "category": "Breakfast", "unit": "box", "pack_size": "1.2kg", "base_price": 6.0},
+    {"item_name": "Carman's Muesli 500g", "brand": "Carman's", "category": "Breakfast", "unit": "bag", "pack_size": "500g", "base_price": 5.9},
+    {"item_name": "Red Lentils 1kg", "brand": "McKenzie's", "category": "Pulses", "unit": "pack", "pack_size": "1kg", "base_price": 4.7},
+    {"item_name": "Chickpeas 500g", "brand": "McKenzie's", "category": "Pulses", "unit": "pack", "pack_size": "500g", "base_price": 2.9},
+    {"item_name": "Black Beans 400g", "brand": "Edgell", "category": "Pulses", "unit": "can", "pack_size": "400g", "base_price": 1.8},
+    {"item_name": "Brown Lentils 500g", "brand": "Macro", "category": "Pulses", "unit": "pack", "pack_size": "500g", "base_price": 3.4},
+    {"item_name": "Cobram Estate Olive Oil 1L", "brand": "Cobram Estate", "category": "Cooking Essentials", "unit": "bottle", "pack_size": "1L", "base_price": 15.0},
+    {"item_name": "Canola Oil 2L", "brand": "Woolworths", "category": "Cooking Essentials", "unit": "bottle", "pack_size": "2L", "base_price": 6.8},
+    {"item_name": "Western Star Butter 500g", "brand": "Western Star", "category": "Cooking Essentials", "unit": "pack", "pack_size": "500g", "base_price": 7.5},
+    {"item_name": "CSR White Sugar 1kg", "brand": "CSR", "category": "Kitchen Staples", "unit": "pack", "pack_size": "1kg", "base_price": 2.0},
+    {"item_name": "Saxa Table Salt 750g", "brand": "Saxa", "category": "Kitchen Staples", "unit": "pack", "pack_size": "750g", "base_price": 1.4},
+    {"item_name": "Twinings English Breakfast 100 Pack", "brand": "Twinings", "category": "Beverages", "unit": "box", "pack_size": "100 bags", "base_price": 8.9},
+    {"item_name": "Moccona Coffee 400g", "brand": "Moccona", "category": "Beverages", "unit": "jar", "pack_size": "400g", "base_price": 15.0},
+    {"item_name": "Arnott's Tim Tam 200g", "brand": "Arnott's", "category": "Snacks", "unit": "pack", "pack_size": "200g", "base_price": 3.5},
+    {"item_name": "Smith's Chips 170g", "brand": "Smith's", "category": "Snacks", "unit": "pack", "pack_size": "170g", "base_price": 4.0},
+    {"item_name": "Omo Laundry Liquid 2L", "brand": "Omo", "category": "Home Care", "unit": "bottle", "pack_size": "2L", "base_price": 12.0},
+    {"item_name": "Morning Fresh Dishwashing Liquid 900ml", "brand": "Morning Fresh", "category": "Home Care", "unit": "bottle", "pack_size": "900ml", "base_price": 4.5},
+    {"item_name": "Dettol Surface Spray 500ml", "brand": "Dettol", "category": "Home Care", "unit": "bottle", "pack_size": "500ml", "base_price": 5.2},
+    {"item_name": "Palmolive Hand Wash 500ml", "brand": "Palmolive", "category": "Personal Care", "unit": "bottle", "pack_size": "500ml", "base_price": 3.8},
+    {"item_name": "Dove Beauty Bar 4 Pack", "brand": "Dove", "category": "Personal Care", "unit": "pack", "pack_size": "4 bars", "base_price": 7.0},
+    {"item_name": "Pantene Shampoo 700ml", "brand": "Pantene", "category": "Personal Care", "unit": "bottle", "pack_size": "700ml", "base_price": 10.0},
+    {"item_name": "Colgate Total Toothpaste 200g", "brand": "Colgate", "category": "Personal Care", "unit": "tube", "pack_size": "200g", "base_price": 5.5},
+    {"item_name": "Tomatoes 1kg", "brand": "Fresh", "category": "Vegetables", "unit": "kg", "pack_size": "1kg", "base_price": 4.5},
+    {"item_name": "Potatoes 2kg", "brand": "Fresh", "category": "Vegetables", "unit": "bag", "pack_size": "2kg", "base_price": 4.0},
+    {"item_name": "Brown Onions 1kg", "brand": "Fresh", "category": "Vegetables", "unit": "kg", "pack_size": "1kg", "base_price": 2.8},
+    {"item_name": "Carrots 1kg", "brand": "Fresh", "category": "Vegetables", "unit": "kg", "pack_size": "1kg", "base_price": 2.4},
+    {"item_name": "Broccoli Head", "brand": "Fresh", "category": "Vegetables", "unit": "each", "pack_size": "1 head", "base_price": 2.5},
+    {"item_name": "Baby Spinach 120g", "brand": "Fresh", "category": "Vegetables", "unit": "bag", "pack_size": "120g", "base_price": 3.2},
+    {"item_name": "Bananas 1kg", "brand": "Fresh", "category": "Fruits", "unit": "kg", "pack_size": "1kg", "base_price": 4.2},
+    {"item_name": "Pink Lady Apples 1kg", "brand": "Fresh", "category": "Fruits", "unit": "kg", "pack_size": "1kg", "base_price": 5.8},
+    {"item_name": "Navel Oranges 1kg", "brand": "Fresh", "category": "Fruits", "unit": "kg", "pack_size": "1kg", "base_price": 4.9},
+    {"item_name": "Avocados 2 Pack", "brand": "Fresh", "category": "Fruits", "unit": "pack", "pack_size": "2 pcs", "base_price": 4.6},
+    {"item_name": "MasterFoods Garlic Powder 100g", "brand": "MasterFoods", "category": "Spices", "unit": "jar", "pack_size": "100g", "base_price": 3.2},
+    {"item_name": "Ground Paprika 100g", "brand": "MasterFoods", "category": "Spices", "unit": "jar", "pack_size": "100g", "base_price": 3.0},
+    {"item_name": "Italian Herbs 20g", "brand": "Hoyts", "category": "Spices", "unit": "jar", "pack_size": "20g", "base_price": 2.3},
+    {"item_name": "Wholemeal Pasta 500g", "brand": "San Remo", "category": "Packaged Food", "unit": "pack", "pack_size": "500g", "base_price": 2.4},
+    {"item_name": "2 Minute Noodles 5 Pack", "brand": "Maggi", "category": "Packaged Food", "unit": "pack", "pack_size": "5 pack", "base_price": 4.1},
+    {"item_name": "Bega Peanut Butter 500g", "brand": "Bega", "category": "Breakfast", "unit": "jar", "pack_size": "500g", "base_price": 4.7},
+    {"item_name": "Beerenberg Strawberry Jam 300g", "brand": "Beerenberg", "category": "Breakfast", "unit": "jar", "pack_size": "300g", "base_price": 5.2},
+]
 
-def _store_multiplier(index: int) -> float:
-    return [0.97, 0.99, 1.0, 1.05, 1.02][index]
+DATASETS = {
+    "india": {
+        "user": {"full_name": "Demo Family India", "city": "Bengaluru", "preferred_store": "Dmart", "monthly_budget": 18000, "household_size": 4},
+        "stores": ["Dmart", "JioMart", "BigBasket", "Blinkit", "Reliance Fresh"],
+        "store_meta": {
+            "Dmart": {"delivery_fee": 0.0, "travel_cost": 60.0, "convenience_index": 0.58},
+            "JioMart": {"delivery_fee": 25.0, "travel_cost": 20.0, "convenience_index": 0.7},
+            "BigBasket": {"delivery_fee": 35.0, "travel_cost": 10.0, "convenience_index": 0.82},
+            "Blinkit": {"delivery_fee": 45.0, "travel_cost": 0.0, "convenience_index": 0.95},
+            "Reliance Fresh": {"delivery_fee": 20.0, "travel_cost": 28.0, "convenience_index": 0.68},
+        },
+        "items": INDIA_ITEMS,
+        "store_multipliers": [0.97, 0.99, 1.0, 1.05, 1.02],
+        "discounts": [4, 7, 10, 5, 8],
+        "frequent_keywords": {"milk": 8, "curd": 3, "bread": 2, "egg": 2, "tomato": 2, "potato": 3, "onion": 2, "banana": 2},
+        "receipt_templates": [(78, 0, (0, 18)), (44, 1, (5, 23)), (12, 2, (10, 28))],
+    },
+    "australia": {
+        "user": {"full_name": "Demo Family Australia", "city": "Sydney", "preferred_store": "Woolworths", "monthly_budget": 1400, "household_size": 4},
+        "stores": ["Woolworths", "Coles", "ALDI", "IGA", "Amazon Fresh"],
+        "store_meta": {
+            "Woolworths": {"delivery_fee": 11.0, "travel_cost": 8.0, "convenience_index": 0.86},
+            "Coles": {"delivery_fee": 10.0, "travel_cost": 10.0, "convenience_index": 0.84},
+            "ALDI": {"delivery_fee": 0.0, "travel_cost": 18.0, "convenience_index": 0.62},
+            "IGA": {"delivery_fee": 0.0, "travel_cost": 14.0, "convenience_index": 0.68},
+            "Amazon Fresh": {"delivery_fee": 9.0, "travel_cost": 0.0, "convenience_index": 0.92},
+        },
+        "items": AUSTRALIA_ITEMS,
+        "store_multipliers": [1.0, 1.01, 0.94, 1.06, 1.03],
+        "discounts": [8, 6, 10, 4, 7],
+        "frequent_keywords": {"milk": 4, "yogurt": 2, "bread": 2, "egg": 2, "tomatoes": 1, "potatoes": 1, "bananas": 1, "apples": 1},
+        "receipt_templates": [(76, 0, (0, 18)), (41, 1, (8, 28)), (9, 2, (18, 38))],
+    },
+}
 
 
-def _discount_for(item_index: int, store_index: int) -> float:
-    return [4, 7, 10, 5, 8][(item_index + store_index) % 5]
+def available_demo_regions() -> list[str]:
+    return sorted(DATASETS.keys())
 
 
-def _quantity_for(item_name: str, month_offset: int) -> float:
-    frequent = {
-        "milk": 8 + month_offset,
-        "curd": 3,
-        "bread": 2,
-        "egg": 2,
-        "tomato": 2,
-        "potato": 3,
-        "onion": 2,
-        "banana": 2,
-    }
+def get_active_demo_region(db: Session) -> str:
+    setting = db.query(AppSetting).filter_by(key="demo_region").first()
+    if setting and setting.value in DATASETS:
+        return setting.value
+    return settings.demo_region if settings.demo_region in DATASETS else "india"
+
+
+def set_active_demo_region(db: Session, region: str) -> str:
+    if region not in DATASETS:
+        raise ValueError(f"Unsupported demo region: {region}")
+    setting = db.query(AppSetting).filter_by(key="demo_region").first()
+    if setting is None:
+        db.add(AppSetting(key="demo_region", value=region))
+    else:
+        setting.value = region
+    db.commit()
+    return region
+
+
+def _quantity_for(item_name: str, month_offset: int, frequent_keywords: dict[str, int]) -> float:
     lowered = item_name.lower()
-    for key, qty in frequent.items():
+    for key, qty in frequent_keywords.items():
         if key in lowered:
-            return qty
+            return qty + month_offset if key == "milk" else qty
     return 1
 
 
-def seed_store_prices(db: Session) -> int:
-    existing = db.query(StorePrice).count()
-    if existing:
-        return existing
-
+def seed_store_prices(db: Session, region: str) -> int:
+    dataset = DATASETS[region]
     today = date.today()
-    for item_index, item in enumerate(DEMO_ITEMS):
+    for item_index, item in enumerate(dataset["items"]):
         normalized = normalize_name(item["item_name"])
-        for store_index, store_name in enumerate(DEMO_STORES):
-            regular_price = round(item["base_price"] * _store_multiplier(store_index), 2)
-            discount = _discount_for(item_index, store_index)
+        for store_index, store_name in enumerate(dataset["stores"]):
+            regular_price = round(item["base_price"] * dataset["store_multipliers"][store_index], 2)
+            discount = dataset["discounts"][(item_index + store_index) % len(dataset["discounts"])]
             offer_price = round(regular_price * (1 - discount / 100), 2)
+            in_stock = not ((item_index + store_index) % 11 == 0)
             db.add(
                 StorePrice(
                     store_name=store_name,
@@ -118,20 +208,22 @@ def seed_store_prices(db: Session) -> int:
                     discount_percentage=discount,
                     offer_description=f"{discount}% off promo",
                     valid_from=today - timedelta(days=7),
-                    valid_to=today + timedelta(days=21),
+                    valid_to=today + timedelta(days=7 + ((item_index + store_index) % 14)),
+                    in_stock=in_stock,
+                    stock_status="in_stock" if in_stock else "out_of_stock",
                 )
             )
     db.commit()
-    return len(DEMO_ITEMS) * len(DEMO_STORES)
+    return len(dataset["items"]) * len(dataset["stores"])
 
 
-def seed_demo_data(db: Session) -> None:
-    if db.query(User).filter(User.email == settings.demo_user_email).first():
-        return
-
+def _clear_demo_data(db: Session) -> None:
     db.execute(delete(PredictedBasketItem))
     db.execute(delete(PredictedBasket))
     db.execute(delete(SavingsRecommendation))
+    db.execute(delete(UserSelectedStoreItem))
+    db.execute(delete(ShoppingListItem))
+    db.execute(delete(ShoppingList))
     db.execute(delete(UserPurchasePattern))
     db.execute(delete(ReceiptItem))
     db.execute(delete(Receipt))
@@ -140,32 +232,53 @@ def seed_demo_data(db: Session) -> None:
     db.execute(delete(User))
     db.commit()
 
+
+def seed_demo_data(db: Session, region: str | None = None, force: bool = False) -> None:
+    selected_region = region or get_active_demo_region(db)
+    if selected_region not in DATASETS:
+        selected_region = "india"
+    current_region = get_active_demo_region(db)
+    user_exists = db.query(User).filter(User.email == settings.demo_user_email).first() is not None
+    if user_exists and current_region == selected_region and not force:
+        return
+
+    _clear_demo_data(db)
+    set_active_demo_region(db, selected_region)
+    dataset = DATASETS[selected_region]
+    user_profile = dataset["user"]
+
     demo_user = User(
-        full_name="Demo Family",
+        full_name=user_profile["full_name"],
         email=settings.demo_user_email,
         hashed_password=get_password_hash(settings.demo_user_password),
-        household_size=4,
-        city="Bengaluru",
-        preferred_store="Dmart",
-        monthly_budget=18000,
+        household_size=user_profile["household_size"],
+        city=user_profile["city"],
+        preferred_store=user_profile["preferred_store"],
+        monthly_budget=user_profile["monthly_budget"],
     )
     db.add(demo_user)
     db.flush()
 
-    for store_name in DEMO_STORES:
-        db.add(Store(store_name=store_name, city="Bengaluru"))
+    for store_name in dataset["stores"]:
+        meta = dataset["store_meta"][store_name]
+        db.add(
+            Store(
+                store_name=store_name,
+                city=user_profile["city"],
+                delivery_fee=meta["delivery_fee"],
+                travel_cost=meta["travel_cost"],
+                convenience_index=meta["convenience_index"],
+            )
+        )
     db.commit()
 
-    seed_store_prices(db)
+    seed_store_prices(db, selected_region)
 
     today = date.today()
-    receipt_templates = [
-        (today - timedelta(days=78), "Dmart", DEMO_ITEMS[0:18]),
-        (today - timedelta(days=44), "JioMart", DEMO_ITEMS[5:23]),
-        (today - timedelta(days=12), "BigBasket", DEMO_ITEMS[10:28]),
-    ]
-
-    for month_offset, (purchase_date, store_name, items) in enumerate(receipt_templates):
+    for month_offset, (days_ago, store_index, slice_window) in enumerate(dataset["receipt_templates"]):
+        purchase_date = today - timedelta(days=days_ago)
+        store_name = dataset["stores"][store_index]
+        items = dataset["items"][slice_window[0]:slice_window[1]]
         receipt = Receipt(
             user_id=demo_user.id,
             store_name=store_name,
@@ -173,7 +286,7 @@ def seed_demo_data(db: Session) -> None:
             purchase_date=purchase_date,
             total_amount=0,
             upload_type="seed",
-            raw_text="Synthetic seeded receipt",
+            raw_text=f"Synthetic seeded receipt for {selected_region}",
             file_name=None,
         )
         db.add(receipt)
@@ -182,7 +295,7 @@ def seed_demo_data(db: Session) -> None:
         total_amount = 0.0
         for item in items:
             normalized_name = normalize_name(item["item_name"])
-            quantity = _quantity_for(item["item_name"], month_offset)
+            quantity = _quantity_for(item["item_name"], month_offset, dataset["frequent_keywords"])
             unit_price = round(item["base_price"] * (0.98 + month_offset * 0.02), 2)
             line_total = round(quantity * unit_price, 2)
             total_amount += line_total
@@ -207,7 +320,6 @@ def seed_demo_data(db: Session) -> None:
         receipt.total_amount = round(total_amount, 2)
 
     db.commit()
-
     analyze_patterns(db, demo_user.id)
     basket = generate_prediction(db, demo_user.id, current_prediction_month())
     generate_recommendation(db, demo_user.id, basket)

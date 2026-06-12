@@ -20,3 +20,5 @@ class User(Base):
     patterns = relationship("UserPurchasePattern", back_populates="user", cascade="all, delete-orphan")
     predicted_baskets = relationship("PredictedBasket", back_populates="user", cascade="all, delete-orphan")
     recommendations = relationship("SavingsRecommendation", back_populates="user", cascade="all, delete-orphan")
+    shopping_lists = relationship("ShoppingList", back_populates="user", cascade="all, delete-orphan")
+    selected_store_items = relationship("UserSelectedStoreItem", back_populates="user", cascade="all, delete-orphan")

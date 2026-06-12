@@ -2,25 +2,23 @@
 
 import { useEffect, useState } from "react";
 
+import { getCurrentUser } from "@/lib/api";
 import { LoginForm } from "@/components/login-form";
 
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    try {
-      setToken(window.localStorage.getItem("grocery-token"));
-    } catch {
-      setToken(null);
-    } finally {
-      setMounted(true);
-    }
+    void getCurrentUser()
+      .then(() => setAuthenticated(true))
+      .catch(() => setAuthenticated(false))
+      .finally(() => setMounted(true));
   }, []);
 
-  if (!mounted || !token) {
-    return <LoginForm onLoggedIn={setToken} />;
+  if (!mounted || !authenticated) {
+    return <LoginForm onLoggedIn={() => setAuthenticated(true)} />;
   }
 
   return <>{children}</>;

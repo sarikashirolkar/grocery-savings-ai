@@ -7,7 +7,7 @@ from app.models.prediction import PredictedBasket
 from app.models.pricing import StorePrice
 from app.models.user import User
 from app.schemas.prices import PriceComparisonItem, StorePriceOut
-from app.services.analytics import compare_prices_for_basket
+from app.services.analytics import compare_item_prices, compare_prices_for_basket
 from app.services.seed import seed_store_prices
 
 router = APIRouter(prefix="/prices", tags=["prices"])
@@ -32,4 +32,17 @@ def compare_prices(db: Session = Depends(get_db), current_user: User = Depends(g
     basket = db.query(PredictedBasket).filter_by(user_id=current_user.id).order_by(PredictedBasket.id.desc()).first()
     if not basket:
         raise HTTPException(status_code=404, detail="Prediction not generated yet")
-    return compare_prices_for_basket(db, basket)
+    return compare_prices_for_basket(db, current_user, basket)
+
+
+@router.get("/compare/{normalized_item_name}", response_model=PriceComparisonItem)
+def compare_single_item(normalized_item_name: str, quantity: float = 1, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return compare_item_prices(
+        db,
+        current_user,
+        normalized_item_name=normalized_item_name,
+        quantity=quantity,
+        average_price_paid=0,
+        category=None,
+        item_name=normalized_item_name.replace("-", " ").title(),
+    )

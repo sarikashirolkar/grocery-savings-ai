@@ -17,6 +17,10 @@ class Receipt(Base):
     total_amount: Mapped[float] = mapped_column(Float, default=0)
     upload_type: Mapped[str] = mapped_column(String(50), default="manual")
     file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    file_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    mime_type: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    file_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    extraction_method: Mapped[str | None] = mapped_column(String(80), nullable=True)
     raw_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

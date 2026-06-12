@@ -47,6 +47,10 @@ class ReceiptOut(BaseModel):
     total_amount: float
     upload_type: str
     file_name: str | None = None
+    file_path: str | None = None
+    mime_type: str | None = None
+    file_size_bytes: int | None = None
+    extraction_method: str | None = None
     raw_text: str | None = None
     created_at: datetime
     items: list[ReceiptItemBase]
