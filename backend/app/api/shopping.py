@@ -27,6 +27,7 @@ from app.services.analytics import (
     generate_prediction,
     sync_shopping_list_from_prediction,
 )
+from app.services.pantry import sync_pantry
 
 router = APIRouter(prefix="/shopping", tags=["shopping"])
 
@@ -45,6 +46,7 @@ def _current_list(db: Session, user_id: int) -> ShoppingList | None:
 def sync_from_prediction(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     basket = db.query(PredictedBasket).filter_by(user_id=current_user.id).order_by(PredictedBasket.id.desc()).first()
     if not basket:
+        sync_pantry(db, current_user.id)
         basket = generate_prediction(db, current_user.id, current_prediction_month())
     return sync_shopping_list_from_prediction(db, current_user.id, basket)
 

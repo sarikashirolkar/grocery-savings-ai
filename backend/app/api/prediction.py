@@ -7,12 +7,14 @@ from app.models.prediction import PredictedBasket
 from app.models.user import User
 from app.schemas.prediction import PredictedBasketOut
 from app.services.analytics import current_prediction_month, generate_prediction
+from app.services.pantry import sync_pantry
 
 router = APIRouter(prefix="/prediction", tags=["prediction"])
 
 
 @router.post("/generate", response_model=PredictedBasketOut)
 def generate(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    sync_pantry(db, current_user.id)
     return generate_prediction(db, current_user.id, current_prediction_month())
 
 

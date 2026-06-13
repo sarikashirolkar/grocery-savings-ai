@@ -35,6 +35,9 @@ export function PriceComparisonTable({ comparison, selectedStore, onChoose }: Pr
               Substitute option: {comparison.substitution_item_name} could save about ₹{comparison.substitution_saving?.toFixed(0) || "0"}.
             </p>
           ) : null}
+          {comparison.substitution_reason ? (
+            <p className="mt-2 text-sm text-steel">{comparison.substitution_reason}</p>
+          ) : null}
         </div>
         <div className="rounded-md border border-rose/30 bg-blush px-4 py-3 text-sm text-taupe">
           Estimated saving: ₹{comparison.estimated_saving.toFixed(0)}
@@ -64,7 +67,10 @@ export function PriceComparisonTable({ comparison, selectedStore, onChoose }: Pr
                 <td>{option.discount_percentage.toFixed(0)}%</td>
                 <td>₹{(option.delivery_fee + option.travel_cost).toFixed(0)}</td>
                 <td>{option.stock_status}</td>
-                <td className="text-steel">{option.offer_description}</td>
+                <td className="text-steel">
+                  <div>{option.offer_description}</div>
+                  <div className="mt-1 text-xs">{option.why}</div>
+                </td>
                 <td>
                   <button className={selectedStore === option.store_name ? "btn-primary" : "btn-quiet"} onClick={() => onChoose(option.store_name)} type="button">
                     {selectedStore === option.store_name ? "Chosen" : "Choose"}

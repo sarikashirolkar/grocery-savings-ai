@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -6,17 +6,34 @@ from app.db.session import get_db
 from app.models.prediction import PredictedBasket
 from app.models.pricing import StorePrice
 from app.models.user import User
-from app.schemas.prices import PriceComparisonItem, StorePriceOut
+from app.schemas.prices import PriceComparisonItem, PriceImportResult, StorePriceOut
 from app.services.analytics import compare_item_prices, compare_prices_for_basket
-from app.services.seed import seed_store_prices
+from app.services.price_imports import import_store_prices_csv
+from app.services.seed import get_active_demo_region, seed_store_prices
 
 router = APIRouter(prefix="/prices", tags=["prices"])
 
 
 @router.post("/seed")
 def seed_prices(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    count = seed_store_prices(db)
+    count = seed_store_prices(db, get_active_demo_region(db))
     return {"message": "Store prices seeded", "count": count}
+
+
+@router.post("/import-csv", response_model=PriceImportResult)
+async def import_prices_csv(
+    source: str = Form(default="retailer_csv"),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not (file.filename or "").lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Price import requires a CSV file.")
+    content = await file.read()
+    try:
+        return import_store_prices_csv(db, content, source)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/search", response_model=list[StorePriceOut])

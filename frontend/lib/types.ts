@@ -20,6 +20,7 @@ export type Summary = {
   region: string;
   budget_status: BudgetStatus;
   notifications: DashboardNotification[];
+  insights: ActionInsight[];
   prediction_accuracy?: PredictionAccuracySummary | null;
 };
 
@@ -45,6 +46,13 @@ export type DashboardNotification = {
   item_name?: string | null;
   store_name?: string | null;
   savings_amount?: number | null;
+};
+
+export type ActionInsight = {
+  title: string;
+  message: string;
+  kind: string;
+  severity: string;
 };
 
 export type PredictionAccuracySummary = {
@@ -164,6 +172,8 @@ export type StorePrice = {
   valid_to: string;
   in_stock: boolean;
   stock_status: string;
+  source?: string | null;
+  captured_at?: string | null;
 };
 
 export type StoreOption = {
@@ -179,6 +189,11 @@ export type StoreOption = {
   convenience_index: number;
   effective_total: number;
   recommendation_score: number;
+  price_component: number;
+  fee_component: number;
+  convenience_credit: number;
+  stock_penalty: number;
+  why?: string | null;
 };
 
 export type PriceComparisonItem = {
@@ -198,7 +213,25 @@ export type PriceComparisonItem = {
   difference_to_second_best: number;
   substitution_item_name?: string | null;
   substitution_saving?: number | null;
+  substitution_reason?: string | null;
   options: StoreOption[];
+};
+
+export type RecommendationExplanation = {
+  winning_store: string;
+  savings_vs_baseline: number;
+  price_impact: number;
+  fee_impact: number;
+  convenience_impact: number;
+  stock_risk_impact: number;
+  summary: string;
+};
+
+export type RecommendationItemReason = {
+  item_name: string;
+  recommended_store?: string | null;
+  savings: number;
+  reason: string;
 };
 
 export type Recommendation = {
@@ -213,6 +246,33 @@ export type Recommendation = {
   savings_percentage: number;
   convenience_note?: string | null;
   recommendation_strategy: string;
+  explanation?: RecommendationExplanation | null;
+  item_reasons: RecommendationItemReason[];
+};
+
+export type PantryItem = {
+  id: number;
+  item_name: string;
+  normalized_item_name: string;
+  category?: string | null;
+  on_hand_quantity: number;
+  monthly_usage_quantity: number;
+  days_remaining: number;
+  depletion_risk: string;
+  buy_timing: string;
+  last_purchase_date?: string | null;
+  updated_at: string;
+};
+
+export type PantrySyncResult = {
+  synced_count: number;
+  items: PantryItem[];
+};
+
+export type PriceImportResult = {
+  imported_count: number;
+  source: string;
+  stores_touched: string[];
 };
 
 export type StoreSelection = {

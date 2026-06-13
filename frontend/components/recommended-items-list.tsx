@@ -1,19 +1,21 @@
 "use client";
 
-import type { PriceComparisonItem, ShoppingListItem } from "@/lib/types";
+import type { PantryItem, PriceComparisonItem, ShoppingListItem } from "@/lib/types";
 
 
 type RecommendedItemsListProps = {
   items: ShoppingListItem[];
   comparisons: PriceComparisonItem[];
+  pantryItems?: PantryItem[];
   activeItemKey?: string;
   onSelect: (item: ShoppingListItem) => void;
   onRemove: (itemId: number) => void;
 };
 
 
-export function RecommendedItemsList({ items, comparisons, activeItemKey, onSelect, onRemove }: RecommendedItemsListProps) {
+export function RecommendedItemsList({ items, comparisons, pantryItems, activeItemKey, onSelect, onRemove }: RecommendedItemsListProps) {
   const comparisonMap = Object.fromEntries(comparisons.map((comparison) => [comparison.normalized_item_name, comparison]));
+  const pantryMap = Object.fromEntries((pantryItems || []).map((item) => [item.normalized_item_name, item]));
   const grouped = items.reduce<Record<string, ShoppingListItem[]>>((accumulator, item) => {
     const key = item.category || "Other";
     accumulator[key] = accumulator[key] || [];
@@ -34,6 +36,7 @@ export function RecommendedItemsList({ items, comparisons, activeItemKey, onSele
             <div className="space-y-3">
               {group.map((item) => {
                 const comparison = comparisonMap[item.normalized_item_name];
+                const pantry = pantryMap[item.normalized_item_name];
                 const latestSelection = item.selected_store_items.at(-1);
                 const active = activeItemKey === item.normalized_item_name;
                 return (
@@ -52,6 +55,11 @@ export function RecommendedItemsList({ items, comparisons, activeItemKey, onSele
                           ) : (
                             <div className="mt-2 text-sm text-steel">No current store prices available.</div>
                           )}
+                          {pantry ? (
+                            <div className="mt-2 text-sm text-steel">
+                              Pantry: {pantry.on_hand_quantity.toFixed(1)} left | {pantry.buy_timing.replace("_", " ")} | {pantry.days_remaining.toFixed(0)} days remaining
+                            </div>
+                          ) : null}
                         </div>
                         <div className="text-right text-sm">
                           <div className="inline-flex rounded-md border border-line bg-canvas px-3 py-1 text-taupe">{latestSelection?.store_name || "Pick store"}</div>

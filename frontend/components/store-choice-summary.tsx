@@ -90,6 +90,19 @@ export function StoreChoiceSummary({ plan, onChooseCheapest, onChooseStore, stor
           </tbody>
         </table>
       </div>
+      {plan?.notifications?.length ? (
+        <div className="panel p-5">
+          <h2 className="eyebrow">Recommendation why</h2>
+          <div className="mt-4 space-y-3">
+            {plan.notifications.slice(0, 4).map((notification, index) => (
+              <div className="soft-card p-4" key={`${notification.title}-${index}`}>
+                <div className="font-semibold text-taupe">{notification.title}</div>
+                <div className="mt-1 text-sm text-steel">{notification.message}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -20,6 +20,13 @@ class DashboardNotification(BaseModel):
     savings_amount: float | None = None
 
 
+class ActionInsight(BaseModel):
+    title: str
+    message: str
+    kind: str
+    severity: str = "info"
+
+
 class PredictionAccuracySummary(BaseModel):
     prediction_month: str | None = None
     matched_items: int = 0
@@ -48,6 +55,7 @@ class DashboardSummary(BaseModel):
     region: str = "india"
     budget_status: BudgetStatus
     notifications: list[DashboardNotification] = []
+    insights: list[ActionInsight] = []
     prediction_accuracy: PredictionAccuracySummary | None = None
 
 

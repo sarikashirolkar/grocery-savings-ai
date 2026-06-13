@@ -33,7 +33,6 @@ export function ManualReceiptForm({ onCreated }: { onCreated: () => void }) {
   const [previewRawText, setPreviewRawText] = useState<string>("");
   const [previewReady, setPreviewReady] = useState(false);
   const {
-    getValues,
     register,
     handleSubmit,
     reset,

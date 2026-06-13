@@ -17,8 +17,10 @@ from app.services.analytics import (
     build_budget_status,
     build_price_notifications,
     compare_prices_for_basket,
+    historical_action_insights,
     prediction_accuracy_for_latest_completed_month,
 )
+from app.services.pantry import sync_pantry
 from app.services.regions import region_metadata
 from app.services.seed import get_active_demo_region
 
@@ -47,6 +49,7 @@ def summary(db: Session = Depends(get_db), current_user: User = Depends(get_curr
     region_info = region_metadata(region)
     basket = db.query(PredictedBasket).filter_by(user_id=current_user.id).order_by(PredictedBasket.id.desc()).first()
     comparisons = compare_prices_for_basket(db, current_user, basket) if basket else []
+    pantry_items = sync_pantry(db, current_user.id) if bills_uploaded else []
     return DashboardSummary(
         bills_uploaded=bills_uploaded,
         monthly_grocery_spend=monthly_spend,
@@ -59,6 +62,7 @@ def summary(db: Session = Depends(get_db), current_user: User = Depends(get_curr
         region=region,
         budget_status=build_budget_status(current_user, projected_spend=basket.expected_total_spend if basket else monthly_spend),
         notifications=build_price_notifications(comparisons, current_user.preferred_store),
+        insights=historical_action_insights(db, current_user, comparisons, pantry_items),
         prediction_accuracy=prediction_accuracy_for_latest_completed_month(db, current_user.id),
     )
 

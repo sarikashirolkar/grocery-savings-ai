@@ -53,6 +53,9 @@ def test_recommendation_and_shopping_plan() -> None:
         plan = client.get("/shopping/plan", headers=headers)
         assert plan.status_code == 200
         assert "shopping_list" in plan.json()
+        current = client.get("/recommendations/current", headers=headers)
+        assert current.status_code == 200
+        assert "explanation" in current.json()
 
 
 def test_demo_region_switch_to_australia() -> None:
@@ -100,3 +103,26 @@ def test_batch_pdf_import_creates_multiple_receipts() -> None:
         payload = response.json()
         assert payload["imported_count"] == 2
         assert payload["extracted_receipt_count"] == 2
+
+
+def test_pantry_sync_and_price_csv_import() -> None:
+    with TestClient(app) as client:
+        headers = _auth_headers(client)
+        patterns = client.post("/patterns/analyze", headers=headers)
+        assert patterns.status_code == 200
+        pantry = client.post("/pantry/sync", headers=headers)
+        assert pantry.status_code == 200
+        assert "synced_count" in pantry.json()
+
+        csv_body = (
+            "store_name,item_name,regular_price,offer_price,valid_from,valid_to,brand,pack_size\n"
+            "Blinkit,Amul Gold Milk 1L,72,68,2026-06-01,2026-06-30,Amul,1L\n"
+        )
+        imported = client.post(
+            "/prices/import-csv",
+            headers=headers,
+            data={"source": "test_feed"},
+            files={"file": ("prices.csv", csv_body.encode(), "text/csv")},
+        )
+        assert imported.status_code == 200
+        assert imported.json()["imported_count"] == 1

@@ -17,9 +17,11 @@ import {
   downloadBuyPlanCsv,
   generatePrediction,
   getBuyPlan,
+  getPantry,
   removeShoppingItem,
   searchPrices,
   selectStoreForItem,
+  syncPantry,
   syncShoppingList,
 } from "@/lib/api";
 import type { ShoppingListItem } from "@/lib/types";
@@ -46,6 +48,10 @@ function BuyPageScreen() {
     queryFn: () => searchPrices(search),
     enabled: search.trim().length > 0
   });
+  const pantry = useQuery({
+    queryKey: ["pantry"],
+    queryFn: () => getPantry()
+  });
 
   const activeItem = plan.data?.shopping_list.items.find((item) => item.normalized_item_name === activeItemKey);
   const activeComparison = plan.data?.comparisons.find((item) => item.normalized_item_name === activeItemKey);
@@ -63,7 +69,8 @@ function BuyPageScreen() {
   const refreshPlan = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["buy-plan"] }),
-      queryClient.invalidateQueries({ queryKey: ["catalog-search"] })
+      queryClient.invalidateQueries({ queryKey: ["catalog-search"] }),
+      queryClient.invalidateQueries({ queryKey: ["pantry"] })
     ]);
   };
 
@@ -72,6 +79,7 @@ function BuyPageScreen() {
       try {
         await syncShoppingList();
       } catch {
+        await syncPantry();
         await generatePrediction();
         await syncShoppingList();
       }
@@ -193,6 +201,7 @@ function BuyPageScreen() {
           activeItemKey={activeItemKey}
           comparisons={plan.data?.comparisons || []}
           items={plan.data?.shopping_list.items || []}
+          pantryItems={pantry.data || []}
           onRemove={(itemId) => {
             void removeShoppingItem(itemId).then(refreshPlan);
           }}

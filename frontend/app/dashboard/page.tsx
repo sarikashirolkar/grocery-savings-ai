@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app-shell";
 import { AuthGate } from "@/components/auth-gate";
 import { ManualReceiptForm } from "@/components/manual-receipt-form";
 import { MetricCard } from "@/components/metric-card";
+import { PriceImportForm } from "@/components/price-import-form";
 import {
   analyzePatterns,
   downloadSavingsReportCsv,
@@ -14,11 +15,13 @@ import {
   generateRecommendation,
   getCategorySpend,
   getMonthlySavings,
+  getPantry,
   getReceipts,
   getRecommendation,
   getSavingsReport,
   getStoreComparison,
   getSummary,
+  syncPantry,
   getTopSavings
 } from "@/lib/api";
 
@@ -56,6 +59,7 @@ function DashboardScreen() {
   const categorySpend = useQuery({ queryKey: ["category-spend"], queryFn: () => getCategorySpend() });
   const storeComparison = useQuery({ queryKey: ["store-comparison"], queryFn: () => getStoreComparison() });
   const receipts = useQuery({ queryKey: ["receipts"], queryFn: () => getReceipts() });
+  const pantry = useQuery({ queryKey: ["pantry"], queryFn: () => getPantry() });
   const recommendation = useQuery({ queryKey: ["recommendation"], queryFn: () => getRecommendation(), retry: false });
   const topSavings = useQuery({ queryKey: ["top-savings"], queryFn: () => getTopSavings() });
   const report = useQuery({ queryKey: ["savings-report"], queryFn: () => getSavingsReport() });
@@ -64,6 +68,7 @@ function DashboardScreen() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["summary"] }),
       queryClient.invalidateQueries({ queryKey: ["receipts"] }),
+      queryClient.invalidateQueries({ queryKey: ["pantry"] }),
       queryClient.invalidateQueries({ queryKey: ["monthly-savings"] }),
       queryClient.invalidateQueries({ queryKey: ["category-spend"] }),
       queryClient.invalidateQueries({ queryKey: ["store-comparison"] }),
@@ -74,7 +79,13 @@ function DashboardScreen() {
   };
 
   const patternsMutation = useMutation({ mutationFn: () => analyzePatterns(), onSuccess: refreshCore });
-  const predictionMutation = useMutation({ mutationFn: () => generatePrediction(), onSuccess: refreshCore });
+  const predictionMutation = useMutation({
+    mutationFn: async () => {
+      await syncPantry();
+      return generatePrediction();
+    },
+    onSuccess: refreshCore
+  });
   const recommendationMutation = useMutation({ mutationFn: () => generateRecommendation(), onSuccess: refreshCore });
   const summaryData = summary.data;
 
@@ -164,6 +175,40 @@ function DashboardScreen() {
           ) : (
             <p className="mt-4 text-sm text-steel">Generate a recommendation once the next basket has been refreshed.</p>
           )}
+        </div>
+      </section>
+
+      <section className="mt-8 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="panel p-5">
+          <h2 className="eyebrow">Historical Insights</h2>
+          <div className="mt-4 space-y-3">
+            {(summaryData?.insights || []).map((insight) => (
+              <div className="soft-card p-4" key={`${insight.kind}-${insight.title}`}>
+                <div className="font-semibold text-taupe">{insight.title}</div>
+                <div className="mt-1 text-sm text-steel">{insight.message}</div>
+              </div>
+            ))}
+            {!summaryData?.insights?.length ? <p className="text-sm text-steel">Insights will appear as more receipt history and price data accumulate.</p> : null}
+          </div>
+        </div>
+        <div className="panel p-5">
+          <h2 className="eyebrow">Pantry Depletion</h2>
+          <div className="mt-4 space-y-3">
+            {(pantry.data || []).slice(0, 6).map((item) => (
+              <div className="soft-card p-4" key={item.id}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="font-semibold text-taupe">{item.item_name}</div>
+                    <div className="mt-1 text-sm text-steel">
+                      On hand {item.on_hand_quantity.toFixed(1)} | {item.days_remaining.toFixed(0)} days remaining
+                    </div>
+                  </div>
+                  <div className="text-right text-sm text-taupe">{item.buy_timing.replace("_", " ")}</div>
+                </div>
+              </div>
+            ))}
+            {!pantry.data?.length ? <p className="text-sm text-steel">Sync the pantry after pattern analysis to estimate depletion timing.</p> : null}
+          </div>
         </div>
       </section>
 
@@ -291,8 +336,9 @@ function DashboardScreen() {
         </div>
       </section>
 
-      <section className="mt-8">
+      <section className="mt-8 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <ManualReceiptForm onCreated={refreshCore} />
+        <PriceImportForm onImported={refreshCore} />
       </section>
 
       <section className="panel mt-8 overflow-x-auto p-5">

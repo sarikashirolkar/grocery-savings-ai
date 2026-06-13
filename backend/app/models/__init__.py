@@ -1,3 +1,4 @@
+from app.models.pantry import PantryItem
 from app.models.prediction import PredictedBasket, PredictedBasketItem
 from app.models.pricing import SavingsRecommendation, Store, StorePrice, UserPurchasePattern
 from app.models.receipt import Receipt, ReceiptItem
@@ -7,6 +8,7 @@ from app.models.user import User
 
 __all__ = [
     "AppSetting",
+    "PantryItem",
     "PredictedBasket",
     "PredictedBasketItem",
     "Receipt",

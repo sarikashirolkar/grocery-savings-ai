@@ -4,6 +4,7 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.models.pantry import PantryItem
 from app.core.security import get_password_hash
 from app.models.prediction import PredictedBasket, PredictedBasketItem
 from app.models.pricing import SavingsRecommendation, Store, StorePrice, UserPurchasePattern
@@ -211,6 +212,8 @@ def seed_store_prices(db: Session, region: str) -> int:
                     valid_to=today + timedelta(days=7 + ((item_index + store_index) % 14)),
                     in_stock=in_stock,
                     stock_status="in_stock" if in_stock else "out_of_stock",
+                    source="seeded_demo",
+                    captured_at=today,
                 )
             )
     db.commit()
@@ -218,6 +221,7 @@ def seed_store_prices(db: Session, region: str) -> int:
 
 
 def _clear_demo_data(db: Session) -> None:
+    db.execute(delete(PantryItem))
     db.execute(delete(PredictedBasketItem))
     db.execute(delete(PredictedBasket))
     db.execute(delete(SavingsRecommendation))

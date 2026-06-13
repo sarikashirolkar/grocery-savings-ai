@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import auth, dashboard, demo, patterns, prediction, prices, receipts, recommendations, shopping
+from app.api import auth, dashboard, demo, pantry, patterns, prediction, prices, receipts, recommendations, shopping
 from app.bootstrap import ensure_runtime_dirs, run_migrations, seed_demo
 from app.core.config import settings
 
@@ -36,6 +36,7 @@ def health():
 
 app.include_router(auth.router)
 app.include_router(demo.router)
+app.include_router(pantry.router)
 app.include_router(receipts.router)
 app.include_router(patterns.router)
 app.include_router(prediction.router)

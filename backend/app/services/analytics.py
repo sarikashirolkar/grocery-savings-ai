@@ -1,14 +1,17 @@
 from collections import Counter, defaultdict
 from datetime import date, timedelta
+from statistics import mean
 
 from sqlalchemy import delete
 from sqlalchemy.orm import Session, selectinload
 
+from app.models.pantry import PantryItem
 from app.models.prediction import PredictedBasket, PredictedBasketItem
 from app.models.pricing import SavingsRecommendation, Store, StorePrice, UserPurchasePattern
 from app.models.receipt import ReceiptItem
 from app.models.shopping import ShoppingList, ShoppingListItem, UserSelectedStoreItem
 from app.models.user import User
+from app.services.pantry import pantry_lookup
 from app.services.parser import infer_category
 
 
@@ -17,6 +20,24 @@ PREFERENCE_BONUS_WEIGHT = 10
 OUT_OF_STOCK_PENALTY = 1000
 PRICE_ALERT_DISCOUNT_THRESHOLD = 15
 SUBSTITUTION_MIN_SAVING = 10
+
+
+def _dietary_preferences(user: User) -> set[str]:
+    raw = user.dietary_preferences or ""
+    return {item.strip().lower() for item in raw.split(",") if item.strip()}
+
+
+def _pack_size_value(pack_size: str | None) -> float | None:
+    if not pack_size:
+        return None
+    digits = "".join(character if (character.isdigit() or character == ".") else " " for character in pack_size)
+    parts = [part for part in digits.split() if part]
+    if not parts:
+        return None
+    try:
+        return float(parts[0])
+    except ValueError:
+        return None
 
 
 def analyze_patterns(db: Session, user_id: int) -> list[UserPurchasePattern]:
@@ -72,6 +93,7 @@ def analyze_patterns(db: Session, user_id: int) -> list[UserPurchasePattern]:
 
 def generate_prediction(db: Session, user_id: int, prediction_month: str) -> PredictedBasket:
     patterns = db.query(UserPurchasePattern).filter_by(user_id=user_id).all()
+    pantry_by_name = pantry_lookup(db, user_id)
     basket = (
         db.query(PredictedBasket)
         .options(selectinload(PredictedBasket.items))
@@ -88,12 +110,22 @@ def generate_prediction(db: Session, user_id: int, prediction_month: str) -> Pre
 
     total_spend = 0.0
     for pattern in patterns:
+        pantry_item = pantry_by_name.get(pattern.normalized_item_name)
+        baseline_needed = pattern.usual_monthly_quantity or pattern.average_purchase_quantity
+        on_hand = pantry_item.on_hand_quantity if pantry_item else 0
+        if pantry_item and pantry_item.buy_timing == "later":
+            predicted_quantity = max(round(baseline_needed * 0.25, 2), 0)
+        else:
+            predicted_quantity = max(round(baseline_needed - on_hand, 2), 0)
+        if predicted_quantity <= 0:
+            continue
+
         item = PredictedBasketItem(
             predicted_basket_id=basket.id,
             item_name=pattern.item_name,
             normalized_item_name=pattern.normalized_item_name,
             category=pattern.category,
-            predicted_quantity=pattern.usual_monthly_quantity or pattern.average_purchase_quantity,
+            predicted_quantity=predicted_quantity,
             expected_purchase_date=pattern.predicted_next_purchase_date,
             average_price_usually_paid=pattern.average_price_paid,
             confidence_score=pattern.confidence_score,
@@ -109,16 +141,23 @@ def generate_prediction(db: Session, user_id: int, prediction_month: str) -> Pre
 
 
 def _weighted_option_for_user(user: User, store: Store | None, price: StorePrice, quantity: float) -> dict:
-    effective_total = price.offer_price * quantity
+    price_component = round(price.offer_price * quantity, 2)
     delivery_fee = store.delivery_fee if store else 0
     travel_cost = store.travel_cost if store else 0
+    fee_component = round(delivery_fee + travel_cost, 2)
     convenience_index = store.convenience_index if store else 0.5
+    convenience_credit = round(convenience_index * CONVENIENCE_INDEX_WEIGHT, 2)
     preference_bonus = 0.2 if user.preferred_store and user.preferred_store == price.store_name else 0
     stock_penalty = OUT_OF_STOCK_PENALTY if not price.in_stock else 0
     recommendation_score = round(
-        effective_total + delivery_fee + travel_cost + stock_penalty - (convenience_index * CONVENIENCE_INDEX_WEIGHT) - (preference_bonus * PREFERENCE_BONUS_WEIGHT),
+        price_component + fee_component + stock_penalty - convenience_credit - (preference_bonus * PREFERENCE_BONUS_WEIGHT),
         2,
     )
+    reasons = [f"item total {price_component:.0f}", f"fees {fee_component:.0f}"]
+    if convenience_credit:
+        reasons.append(f"convenience credit {convenience_credit:.1f}")
+    if stock_penalty:
+        reasons.append("stock risk penalty applied")
     return {
         "store_name": price.store_name,
         "regular_price": price.regular_price,
@@ -130,34 +169,90 @@ def _weighted_option_for_user(user: User, store: Store | None, price: StorePrice
         "delivery_fee": delivery_fee,
         "travel_cost": travel_cost,
         "convenience_index": convenience_index,
-        "effective_total": round(effective_total + delivery_fee + travel_cost, 2),
+        "effective_total": round(price_component + fee_component, 2),
         "recommendation_score": recommendation_score,
+        "price_component": price_component,
+        "fee_component": fee_component,
+        "convenience_credit": convenience_credit,
+        "stock_penalty": stock_penalty,
+        "why": ", ".join(reasons),
     }
 
 
-def _find_substitution(db: Session, *, normalized_item_name: str, category: str | None, average_price_paid: float) -> tuple[str | None, float | None]:
+def _substitution_allowed(user: User, *, original_item_name: str, alternative_item_name: str, original_brand: str | None, alternative_brand: str | None) -> bool:
+    dietary = _dietary_preferences(user)
+    if "vegetarian" in dietary and "chicken" in alternative_item_name.lower():
+        return False
+    if "dairy_free" in dietary and any(token in alternative_item_name.lower() for token in {"milk", "curd", "paneer", "cheese", "yogurt"}):
+        return False
+    if original_brand and alternative_brand and original_brand != alternative_brand and user.brand_preference_strength >= 0.75:
+        return False
+    return True
+
+
+def _find_substitution(
+    db: Session,
+    user: User,
+    *,
+    normalized_item_name: str,
+    category: str | None,
+    average_price_paid: float,
+    item_name: str | None,
+) -> tuple[str | None, float | None, str | None]:
     item_category = category or infer_category(normalized_item_name)
-    alternatives = [
-        price for price in db.query(StorePrice).all()
-        if price.normalized_item_name != normalized_item_name and infer_category(price.item_name) == item_category
-    ]
+    original_prices = db.query(StorePrice).filter_by(normalized_item_name=normalized_item_name).all()
+    original_brand = original_prices[0].brand if original_prices else None
+    original_pack = _pack_size_value(original_prices[0].pack_size) if original_prices else None
+    tolerance = {"strict": 0.15, "balanced": 0.35, "flexible": 0.6}.get(user.substitution_tolerance, 0.35)
+
+    alternatives = []
+    for price in db.query(StorePrice).all():
+        if price.normalized_item_name == normalized_item_name:
+            continue
+        if infer_category(price.item_name) != item_category:
+            continue
+        if not _substitution_allowed(
+            user,
+            original_item_name=item_name or normalized_item_name,
+            alternative_item_name=price.item_name,
+            original_brand=original_brand,
+            alternative_brand=price.brand,
+        ):
+            continue
+        alt_pack = _pack_size_value(price.pack_size)
+        if original_pack and alt_pack and abs(alt_pack - original_pack) / max(original_pack, 1) > tolerance:
+            continue
+        alternatives.append(price)
+
     if not alternatives:
-        return None, None
+        return None, None, None
     cheapest = min(alternatives, key=lambda price: price.offer_price)
     saving = round(average_price_paid - cheapest.offer_price, 2)
-    if saving < SUBSTITUTION_MIN_SAVING:
-        return None, None
-    return cheapest.item_name, saving
+    minimum_saving = SUBSTITUTION_MIN_SAVING * (1 + user.brand_preference_strength)
+    if saving < minimum_saving:
+        return None, None, None
+    reason = f"Same category alternative with better price at comparable pack size from {cheapest.store_name}."
+    return cheapest.item_name, saving, reason
 
 
-def compare_item_prices(db: Session, user: User, normalized_item_name: str, quantity: float, average_price_paid: float, category: str | None = None, item_name: str | None = None) -> dict:
+def compare_item_prices(
+    db: Session,
+    user: User,
+    normalized_item_name: str,
+    quantity: float,
+    average_price_paid: float,
+    category: str | None = None,
+    item_name: str | None = None,
+) -> dict:
     store_prices = db.query(StorePrice).filter_by(normalized_item_name=normalized_item_name).all()
     if not store_prices:
-        substitution_item_name, substitution_saving = _find_substitution(
+        substitution_item_name, substitution_saving, substitution_reason = _find_substitution(
             db,
+            user,
             normalized_item_name=normalized_item_name,
             category=category,
             average_price_paid=average_price_paid,
+            item_name=item_name,
         )
         return {
             "item_name": item_name or normalized_item_name.title(),
@@ -176,6 +271,7 @@ def compare_item_prices(db: Session, user: User, normalized_item_name: str, quan
             "difference_to_second_best": 0,
             "substitution_item_name": substitution_item_name,
             "substitution_saving": substitution_saving,
+            "substitution_reason": substitution_reason,
             "options": [],
         }
 
@@ -187,11 +283,13 @@ def compare_item_prices(db: Session, user: User, normalized_item_name: str, quan
     highest_discount = max(options, key=lambda option: option["discount_percentage"])
     best_ranked = ranked_options[0]
     second_best = ranked_options[1] if len(ranked_options) > 1 else ranked_options[0]
-    substitution_item_name, substitution_saving = _find_substitution(
+    substitution_item_name, substitution_saving, substitution_reason = _find_substitution(
         db,
+        user,
         normalized_item_name=normalized_item_name,
         category=category,
         average_price_paid=average_price_paid or cheapest["offer_price"],
+        item_name=item_name or store_prices[0].item_name,
     )
 
     return {
@@ -205,31 +303,80 @@ def compare_item_prices(db: Session, user: User, normalized_item_name: str, quan
         "best_offer": cheapest["offer_description"],
         "regular_price": cheapest["regular_price"],
         "offer_price": cheapest["offer_price"],
-        "estimated_saving": round(average_price_paid - cheapest["offer_price"], 2),
+        "estimated_saving": round(max(average_price_paid - cheapest["offer_price"], 0), 2),
         "best_store": best_ranked["store_name"],
         "second_best_store": second_best["store_name"],
         "difference_to_second_best": round(second_best["effective_total"] - best_ranked["effective_total"], 2),
         "substitution_item_name": substitution_item_name,
         "substitution_saving": substitution_saving,
+        "substitution_reason": substitution_reason,
         "options": ranked_options,
     }
 
 
 def compare_prices_for_basket(db: Session, user: User, basket: PredictedBasket) -> list[dict]:
-    comparisons = []
-    for item in basket.items:
-        comparisons.append(
-            compare_item_prices(
-                db,
-                user,
-                item.normalized_item_name,
-                item.predicted_quantity,
-                item.average_price_usually_paid,
-                category=item.category,
-                item_name=item.item_name,
-            )
+    return [
+        compare_item_prices(
+            db,
+            user,
+            item.normalized_item_name,
+            item.predicted_quantity,
+            item.average_price_usually_paid,
+            category=item.category,
+            item_name=item.item_name,
         )
-    return comparisons
+        for item in basket.items
+    ]
+
+
+def recommendation_payload(db: Session, recommendation: SavingsRecommendation, basket: PredictedBasket | None) -> dict:
+    comparisons = compare_prices_for_basket(db, recommendation.user, basket) if basket else []
+    price_impact = 0.0
+    fee_impact = 0.0
+    convenience_impact = 0.0
+    stock_risk_impact = 0.0
+    item_reasons = []
+    for comparison in comparisons:
+        if not comparison["options"]:
+            continue
+        best = comparison["options"][0]
+        price_impact += best["price_component"]
+        fee_impact += best["fee_component"]
+        convenience_impact += best["convenience_credit"]
+        stock_risk_impact += best["stock_penalty"]
+        item_reasons.append(
+            {
+                "item_name": comparison["item_name"],
+                "recommended_store": best["store_name"],
+                "savings": comparison["estimated_saving"],
+                "reason": best["why"],
+            }
+        )
+    explanation = {
+        "winning_store": recommendation.best_single_store if recommendation.recommendation_strategy == "single_store" else "multi-store mix",
+        "savings_vs_baseline": recommendation.total_estimated_saving,
+        "price_impact": round(price_impact, 2),
+        "fee_impact": round(fee_impact, 2),
+        "convenience_impact": round(convenience_impact, 2),
+        "stock_risk_impact": round(stock_risk_impact, 2),
+        "summary": recommendation.convenience_note or "Recommendation balances price, fees, and convenience.",
+    }
+    payload = {
+        "id": recommendation.id,
+        "prediction_month": recommendation.prediction_month,
+        "best_single_store": recommendation.best_single_store,
+        "best_single_store_cost": recommendation.best_single_store_cost,
+        "best_multi_store_cost": recommendation.best_multi_store_cost,
+        "expected_spend": recommendation.expected_spend,
+        "optimized_spend": recommendation.optimized_spend,
+        "total_estimated_saving": recommendation.total_estimated_saving,
+        "savings_percentage": recommendation.savings_percentage,
+        "convenience_note": recommendation.convenience_note,
+        "recommendation_strategy": recommendation.recommendation_strategy,
+        "explanation": explanation,
+        "item_reasons": sorted(item_reasons, key=lambda item: item["savings"], reverse=True)[:6],
+    }
+    return payload
 
 
 def generate_recommendation(db: Session, user_id: int, basket: PredictedBasket) -> SavingsRecommendation:
@@ -256,9 +403,9 @@ def generate_recommendation(db: Session, user_id: int, basket: PredictedBasket) 
     total_estimated_saving = round(expected_spend - optimized_spend, 2)
     savings_percentage = round((total_estimated_saving / expected_spend) * 100, 2) if expected_spend else 0
     convenience_note = (
-        "Single-store buying is competitive once travel and delivery costs are considered."
+        "Single-store buying wins after price, travel, and delivery costs are blended."
         if strategy == "single_store"
-        else "Multi-store shopping still wins after convenience weighting."
+        else "A mixed basket wins because item-level savings beat the extra convenience costs."
     )
 
     recommendation = (
@@ -402,6 +549,84 @@ def build_price_notifications(comparisons: list[dict], preferred_store: str | No
                     }
                 )
     return notifications[:8]
+
+
+def historical_action_insights(db: Session, user: User, comparisons: list[dict], pantry_items: list[PantryItem]) -> list[dict]:
+    insights: list[dict] = []
+    category_prices: dict[str, list[float]] = defaultdict(list)
+    category_baselines: dict[str, list[float]] = defaultdict(list)
+    for comparison in comparisons:
+        if comparison["category"] and comparison["offer_price"] is not None:
+            category_prices[comparison["category"]].append(comparison["offer_price"])
+            category_baselines[comparison["category"]].append(comparison["average_price_paid"])
+    category_gaps = []
+    for category, prices in category_prices.items():
+        baseline = mean(category_baselines[category]) if category_baselines[category] else 0
+        current = mean(prices) if prices else 0
+        category_gaps.append((category, baseline - current))
+    if category_gaps:
+        biggest = max(category_gaps, key=lambda item: item[1])
+        if biggest[1] > 5:
+            insights.append({
+                "title": f"You consistently overpay on {biggest[0].lower()}",
+                "message": f"Current market pricing is about ₹{biggest[1]:.0f} below your usual paid price in this category.",
+                "kind": "overpay_category",
+                "severity": "medium",
+            })
+
+    if comparisons:
+        urgent_best = Counter(
+            comparison["options"][0]["store_name"]
+            for comparison in comparisons
+            if comparison["options"] and comparison["options"][0]["convenience_index"] >= 0.85
+        )
+        cheapest_best = Counter(
+            comparison["cheapest_store"]
+            for comparison in comparisons
+            if comparison["cheapest_store"]
+        )
+        if urgent_best:
+            store = urgent_best.most_common(1)[0][0]
+            insights.append({
+                "title": f"{store} is strongest for urgent fills",
+                "message": f"It wins most often when convenience weighting matters, even after delivery and travel costs.",
+                "kind": "urgency_store",
+                "severity": "info",
+            })
+        if cheapest_best:
+            store = cheapest_best.most_common(1)[0][0]
+            insights.append({
+                "title": f"{store} is strongest for bulk savings",
+                "message": "It appears most often as the outright cheapest store across the current basket.",
+                "kind": "bulk_store",
+                "severity": "info",
+            })
+
+    produce_patterns = db.query(UserPurchasePattern).filter(
+        UserPurchasePattern.user_id == user.id,
+        UserPurchasePattern.category.in_(["Vegetables", "Fruits"])
+    ).all()
+    if produce_patterns:
+        confidences = [pattern.confidence_score for pattern in produce_patterns]
+        if mean(confidences) < 0.75:
+            insights.append({
+                "title": "Produce demand is more variable than staples",
+                "message": "Your fruit and vegetable patterns are less stable, so prediction drift is more likely there.",
+                "kind": "prediction_drift",
+                "severity": "medium",
+            })
+
+    urgent_pantry = [item for item in pantry_items if item.buy_timing == "buy_now"]
+    if urgent_pantry:
+        names = ", ".join(item.item_name for item in urgent_pantry[:3])
+        insights.append({
+            "title": "Pantry depletion is driving near-term demand",
+            "message": f"Buy soon: {names}. These items have the shortest days remaining based on recent usage.",
+            "kind": "pantry_depletion",
+            "severity": "high",
+        })
+
+    return insights[:6]
 
 
 def prediction_accuracy_for_latest_completed_month(db: Session, user_id: int) -> dict | None:

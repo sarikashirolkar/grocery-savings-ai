@@ -31,3 +31,24 @@ def apply_sqlite_compat_columns(engine: Engine) -> None:
         if "created_at" not in basket_columns:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE predicted_baskets ADD COLUMN created_at DATETIME"))
+    if "users" in inspector.get_table_names():
+        user_columns = {column["name"] for column in inspector.get_columns("users")}
+        additions = {
+            "dietary_preferences": "ALTER TABLE users ADD COLUMN dietary_preferences VARCHAR(255)",
+            "brand_preference_strength": "ALTER TABLE users ADD COLUMN brand_preference_strength FLOAT DEFAULT 0.45",
+            "substitution_tolerance": "ALTER TABLE users ADD COLUMN substitution_tolerance VARCHAR(32) DEFAULT 'balanced'",
+        }
+        with engine.begin() as connection:
+            for name, statement in additions.items():
+                if name not in user_columns:
+                    connection.execute(text(statement))
+    if "store_prices" in inspector.get_table_names():
+        store_price_columns = {column["name"] for column in inspector.get_columns("store_prices")}
+        additions = {
+            "source": "ALTER TABLE store_prices ADD COLUMN source VARCHAR(120)",
+            "captured_at": "ALTER TABLE store_prices ADD COLUMN captured_at DATE",
+        }
+        with engine.begin() as connection:
+            for name, statement in additions.items():
+                if name not in store_price_columns:
+                    connection.execute(text(statement))

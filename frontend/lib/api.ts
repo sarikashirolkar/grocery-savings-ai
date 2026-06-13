@@ -3,7 +3,10 @@ import type {
   BatchReceiptImport,
   LoginResponse,
   NamedValue,
+  PantryItem,
+  PantrySyncResult,
   Pattern,
+  PriceImportResult,
   PredictedBasket,
   PriceComparisonItem,
   Receipt,
@@ -123,6 +126,25 @@ export function comparePrices() {
   return request<PriceComparisonItem[]>("/prices/compare");
 }
 
+export async function importPricesCsv(payload: { source: string; file: File }) {
+  const formData = new FormData();
+  formData.set("source", payload.source);
+  formData.set("file", payload.file);
+  const response = await fetch(`${getApiBaseUrl()}/prices/import-csv`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+    cache: "no-store"
+  });
+  if (response.status === 401) {
+    handleUnauthorized();
+  }
+  if (!response.ok) {
+    throw new Error((await response.text()) || "Price import failed");
+  }
+  return response.json() as Promise<PriceImportResult>;
+}
+
 export function searchPrices(q: string) {
   return request<StorePrice[]>(`/prices/search?q=${encodeURIComponent(q)}`);
 }
@@ -239,6 +261,14 @@ export function previewReceipt(payload: {
 
 export function getShoppingList() {
   return request<ShoppingList>("/shopping/current");
+}
+
+export function getPantry() {
+  return request<PantryItem[]>("/pantry/current");
+}
+
+export function syncPantry() {
+  return request<PantrySyncResult>("/pantry/sync", { method: "POST" });
 }
 
 export function syncShoppingList() {

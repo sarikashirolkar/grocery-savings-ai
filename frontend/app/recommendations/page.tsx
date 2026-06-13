@@ -40,6 +40,31 @@ function RecommendationsScreen() {
               <p className="mt-2"><span className="font-semibold">Estimated Saving:</span> ₹{recommendation.data.total_estimated_saving.toFixed(0)}</p>
               <p className="mt-2"><span className="font-semibold">Savings Rate:</span> {recommendation.data.savings_percentage.toFixed(1)}%</p>
             </div>
+            {recommendation.data.explanation ? (
+              <div className="soft-card p-4 text-sm text-taupe md:col-span-2">
+                <p className="font-semibold">Why this recommendation won</p>
+                <p className="mt-2">{recommendation.data.explanation.summary}</p>
+                <div className="mt-3 grid gap-3 md:grid-cols-4">
+                  <div>Price impact: ₹{recommendation.data.explanation.price_impact.toFixed(0)}</div>
+                  <div>Fees: ₹{recommendation.data.explanation.fee_impact.toFixed(0)}</div>
+                  <div>Convenience credit: {recommendation.data.explanation.convenience_impact.toFixed(1)}</div>
+                  <div>Stock risk: {recommendation.data.explanation.stock_risk_impact.toFixed(0)}</div>
+                </div>
+              </div>
+            ) : null}
+            {recommendation.data.item_reasons.length ? (
+              <div className="soft-card p-4 text-sm text-taupe md:col-span-2">
+                <p className="font-semibold">Top item-level reasons</p>
+                <div className="mt-3 space-y-3">
+                  {recommendation.data.item_reasons.map((reason) => (
+                    <div key={`${reason.item_name}-${reason.recommended_store}`}>
+                      <div className="font-medium text-taupe">{reason.item_name} {"->"} {reason.recommended_store}</div>
+                      <div className="text-steel">{reason.reason}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : (
           <p className="text-sm text-steel">Generate a recommendation from the dashboard first.</p>

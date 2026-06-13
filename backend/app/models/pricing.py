@@ -34,6 +34,8 @@ class StorePrice(Base):
     valid_to: Mapped[date] = mapped_column(Date)
     in_stock: Mapped[bool] = mapped_column(Boolean, default=True)
     stock_status: Mapped[str] = mapped_column(String(50), default="in_stock")
+    source: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    captured_at: Mapped[date | None] = mapped_column(Date, nullable=True)
 
 
 class UserPurchasePattern(Base):

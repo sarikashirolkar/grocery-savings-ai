@@ -15,6 +15,9 @@ class User(Base):
     city: Mapped[str] = mapped_column(String(120), default="Bengaluru")
     preferred_store: Mapped[str | None] = mapped_column(String(120), nullable=True)
     monthly_budget: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dietary_preferences: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    brand_preference_strength: Mapped[float] = mapped_column(Float, default=0.45)
+    substitution_tolerance: Mapped[str] = mapped_column(String(32), default="balanced")
 
     receipts = relationship("Receipt", back_populates="user", cascade="all, delete-orphan")
     patterns = relationship("UserPurchasePattern", back_populates="user", cascade="all, delete-orphan")
@@ -22,3 +25,4 @@ class User(Base):
     recommendations = relationship("SavingsRecommendation", back_populates="user", cascade="all, delete-orphan")
     shopping_lists = relationship("ShoppingList", back_populates="user", cascade="all, delete-orphan")
     selected_store_items = relationship("UserSelectedStoreItem", back_populates="user", cascade="all, delete-orphan")
+    pantry_items = relationship("PantryItem", back_populates="user", cascade="all, delete-orphan")
