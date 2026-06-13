@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { AppShell } from "@/components/app-shell";
@@ -9,11 +8,7 @@ import { getRecommendation } from "@/lib/api";
 
 
 function RecommendationsScreen() {
-  const [token, setToken] = useState("");
-  useEffect(() => {
-    setToken(window.localStorage.getItem("grocery-token") || "cookie");
-  }, []);
-  const recommendation = useQuery({ queryKey: ["recommendations-page", token], queryFn: () => getRecommendation(token), enabled: !!token, retry: false });
+  const recommendation = useQuery({ queryKey: ["recommendations-page"], queryFn: () => getRecommendation(), retry: false });
 
   return (
     <AppShell>

@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { AppShell } from "@/components/app-shell";
 import { AuthGate } from "@/components/auth-gate";
-import { ChartCard } from "@/components/chart-card";
 import { ManualReceiptForm } from "@/components/manual-receipt-form";
 import { MetricCard } from "@/components/metric-card";
 import {
@@ -21,52 +19,93 @@ import {
   getSavingsReport,
   getStoreComparison,
   getSummary,
-  getTopSavings,
+  getTopSavings
 } from "@/lib/api";
 
-
-const pieColors = ["#604D53", "#DB7F8E", "#9DA3A4", "#D5C5C8", "#FFDBDA"];
-
+const DashboardCharts = dynamic(
+  () => import("@/components/dashboard-charts").then((module) => module.DashboardCharts),
+  {
+    ssr: false,
+    loading: () => (
+      <section className="mt-8 panel p-5">
+        <p className="eyebrow">Charts</p>
+        <p className="mt-3 text-sm text-steel">Loading analytics views...</p>
+      </section>
+    )
+  }
+);
 
 function formatMoney(amount: number | undefined, symbol = "₹") {
   return `${symbol}${(amount || 0).toFixed(0)}`;
 }
 
+function LoadingPanel({ title, copy }: { title: string; copy: string }) {
+  return (
+    <section className="panel mt-8 p-5">
+      <h2 className="eyebrow">{title}</h2>
+      <p className="mt-3 text-sm text-steel">{copy}</p>
+    </section>
+  );
+}
 
 function DashboardScreen() {
-  const [token, setToken] = useState("");
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    setToken(window.localStorage.getItem("grocery-token") || "cookie");
-  }, []);
-
-  const summary = useQuery({ queryKey: ["summary", token], queryFn: () => getSummary(token), enabled: !!token });
-  const monthlySavings = useQuery({ queryKey: ["monthly-savings", token], queryFn: () => getMonthlySavings(token), enabled: !!token });
-  const categorySpend = useQuery({ queryKey: ["category-spend", token], queryFn: () => getCategorySpend(token), enabled: !!token });
-  const storeComparison = useQuery({ queryKey: ["store-comparison", token], queryFn: () => getStoreComparison(token), enabled: !!token });
-  const receipts = useQuery({ queryKey: ["receipts", token], queryFn: () => getReceipts(token), enabled: !!token });
-  const recommendation = useQuery({ queryKey: ["recommendation", token], queryFn: () => getRecommendation(token), enabled: !!token, retry: false });
-  const topSavings = useQuery({ queryKey: ["top-savings", token], queryFn: () => getTopSavings(token), enabled: !!token });
-  const report = useQuery({ queryKey: ["savings-report", token], queryFn: () => getSavingsReport(token), enabled: !!token });
+  const summary = useQuery({ queryKey: ["summary"], queryFn: () => getSummary() });
+  const monthlySavings = useQuery({ queryKey: ["monthly-savings"], queryFn: () => getMonthlySavings() });
+  const categorySpend = useQuery({ queryKey: ["category-spend"], queryFn: () => getCategorySpend() });
+  const storeComparison = useQuery({ queryKey: ["store-comparison"], queryFn: () => getStoreComparison() });
+  const receipts = useQuery({ queryKey: ["receipts"], queryFn: () => getReceipts() });
+  const recommendation = useQuery({ queryKey: ["recommendation"], queryFn: () => getRecommendation(), retry: false });
+  const topSavings = useQuery({ queryKey: ["top-savings"], queryFn: () => getTopSavings() });
+  const report = useQuery({ queryKey: ["savings-report"], queryFn: () => getSavingsReport() });
 
   const refreshCore = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["summary", token] }),
-      queryClient.invalidateQueries({ queryKey: ["receipts", token] }),
-      queryClient.invalidateQueries({ queryKey: ["monthly-savings", token] }),
-      queryClient.invalidateQueries({ queryKey: ["category-spend", token] }),
-      queryClient.invalidateQueries({ queryKey: ["store-comparison", token] }),
-      queryClient.invalidateQueries({ queryKey: ["top-savings", token] }),
-      queryClient.invalidateQueries({ queryKey: ["recommendation", token] }),
-      queryClient.invalidateQueries({ queryKey: ["savings-report", token] })
+      queryClient.invalidateQueries({ queryKey: ["summary"] }),
+      queryClient.invalidateQueries({ queryKey: ["receipts"] }),
+      queryClient.invalidateQueries({ queryKey: ["monthly-savings"] }),
+      queryClient.invalidateQueries({ queryKey: ["category-spend"] }),
+      queryClient.invalidateQueries({ queryKey: ["store-comparison"] }),
+      queryClient.invalidateQueries({ queryKey: ["top-savings"] }),
+      queryClient.invalidateQueries({ queryKey: ["recommendation"] }),
+      queryClient.invalidateQueries({ queryKey: ["savings-report"] })
     ]);
   };
 
-  const patternsMutation = useMutation({ mutationFn: () => analyzePatterns(token), onSuccess: refreshCore });
-  const predictionMutation = useMutation({ mutationFn: () => generatePrediction(token), onSuccess: refreshCore });
-  const recommendationMutation = useMutation({ mutationFn: () => generateRecommendation(token), onSuccess: refreshCore });
+  const patternsMutation = useMutation({ mutationFn: () => analyzePatterns(), onSuccess: refreshCore });
+  const predictionMutation = useMutation({ mutationFn: () => generatePrediction(), onSuccess: refreshCore });
+  const recommendationMutation = useMutation({ mutationFn: () => generateRecommendation(), onSuccess: refreshCore });
   const summaryData = summary.data;
+
+  const primaryActions = [
+    recommendation.data
+      ? `Run ${recommendation.data.recommendation_strategy.toLowerCase()} this cycle.`
+      : "Generate a recommendation after patterns and prediction are refreshed.",
+    topSavings.data?.[0]
+      ? `Move ${topSavings.data[0].item_name} to ${topSavings.data[0].best_store || topSavings.data[0].cheapest_store} to save about ₹${topSavings.data[0].estimated_saving.toFixed(0)}.`
+      : "No high-confidence saving opportunity surfaced yet.",
+    summaryData?.budget_status?.warning || "The current basket is inside the planned monthly spend envelope."
+  ];
+
+  if (summary.isLoading) {
+    return (
+      <AppShell>
+        <LoadingPanel title="Analytics" copy="Loading summary, receipt history, and optimization signals..." />
+      </AppShell>
+    );
+  }
+
+  if (summary.isError) {
+    return (
+      <AppShell>
+        <section className="panel mt-8 p-5">
+          <h2 className="eyebrow">Analytics</h2>
+          <p className="mt-3 text-sm text-roseDeep">The dashboard could not be loaded right now. Refresh the page after signing in again.</p>
+        </section>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -74,7 +113,7 @@ function DashboardScreen() {
         <div>
           <p className="eyebrow text-rose">Analytics</p>
           <h2 className="page-title mt-2">Savings dashboard</h2>
-          <p className="page-copy">Where your grocery spend goes, how the optimizer behaves across stores, and what each cycle is still leaving on the table.</p>
+          <p className="page-copy">Keep the optimizer moving, review the next actions, and drill into deeper spend patterns only when needed.</p>
         </div>
         <div className="flex flex-wrap gap-3">
           <button className="btn-quiet" onClick={() => patternsMutation.mutate()} type="button">Analyze Patterns</button>
@@ -82,6 +121,7 @@ function DashboardScreen() {
           <button className="btn-primary" onClick={() => recommendationMutation.mutate()} type="button">Recommendation</button>
         </div>
       </section>
+
       <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         <MetricCard label="Bills Uploaded" value={`${summaryData?.bills_uploaded ?? 0}`} />
         <MetricCard label="Monthly Spend" value={formatMoney(summaryData?.monthly_grocery_spend, summaryData?.currency_symbol)} />
@@ -90,6 +130,43 @@ function DashboardScreen() {
         <MetricCard label="Lifetime Savings" value={formatMoney(summaryData?.lifetime_savings, summaryData?.currency_symbol)} />
         <MetricCard label="Savings %" value={`${summaryData?.savings_percentage?.toFixed(1) ?? "0"}%`} />
       </section>
+
+      <section className="mt-8 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="panel p-5">
+          <h2 className="eyebrow">Action queue</h2>
+          <div className="mt-4 grid gap-3">
+            {primaryActions.map((action) => (
+              <div className="soft-card p-4 text-sm text-taupe" key={action}>
+                {action}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="panel p-5">
+          <h2 className="eyebrow">Current recommendation</h2>
+          {recommendation.data ? (
+            <div className="mt-4 space-y-3 text-sm text-taupe">
+              <div className="soft-card p-4">
+                <p className="font-semibold">{recommendation.data.recommendation_strategy}</p>
+                <p className="mt-2 text-steel">{recommendation.data.convenience_note || "No convenience note available."}</p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="soft-card p-4">
+                  <p className="eyebrow">Best single store</p>
+                  <p className="mt-2 font-serif text-2xl text-taupe">{recommendation.data.best_single_store}</p>
+                </div>
+                <div className="soft-card p-4">
+                  <p className="eyebrow">Estimated saving</p>
+                  <p className="mt-2 font-serif text-2xl text-taupe">{formatMoney(recommendation.data.total_estimated_saving, summaryData?.currency_symbol)}</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-steel">Generate a recommendation once the next basket has been refreshed.</p>
+          )}
+        </div>
+      </section>
+
       {summaryData?.budget_status ? (
         <section className="panel mt-8 p-5">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -125,80 +202,32 @@ function DashboardScreen() {
           </div>
         </section>
       ) : null}
-      <section className="mt-8 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-        <ChartCard title="Actual vs Optimized Spend">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={monthlySavings.data || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="actual_spend" fill="#9DA3A4" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="optimized_spend" fill="#DB7F8E" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-        <ChartCard title="Category Spend">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={categorySpend.data || []} dataKey="value" nameKey="name" outerRadius={100}>
-                {(categorySpend.data || []).map((entry, index) => (
-                  <Cell key={entry.name} fill={pieColors[index % pieColors.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </section>
+
+      <DashboardCharts
+        categorySpend={categorySpend.data || []}
+        monthlySavings={monthlySavings.data || []}
+        storeComparison={storeComparison.data || []}
+      />
+
       <section className="mt-8 grid gap-6 xl:grid-cols-[1fr_1fr]">
-        <ChartCard title="Store-wise Spend">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={storeComparison.data || []} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" />
-              <YAxis dataKey="name" type="category" width={120} />
-              <Tooltip />
-              <Bar dataKey="value" fill="#DB7F8E" radius={[0, 6, 6, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
         <div className="panel p-5">
-          <h2 className="eyebrow">Top saving opportunities</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="eyebrow">Top saving opportunities</h2>
+            <button className="btn-quiet" onClick={() => void downloadSavingsReportCsv()} type="button">Export Savings CSV</button>
+          </div>
           <div className="mt-4 space-y-3">
             {(topSavings.data || []).map((item) => (
               <div className="soft-card p-3" key={item.normalized_item_name}>
                 <div className="font-serif text-2xl font-medium text-taupe">{item.item_name}</div>
                 <div className="text-sm text-steel">
-                  Best store {item.best_store || item.cheapest_store} | Saving ₹{item.estimated_saving.toFixed(0)}
+                  Best store {item.best_store || item.cheapest_store} | Saving {formatMoney(item.estimated_saving, summaryData?.currency_symbol)}
                 </div>
               </div>
             ))}
-          </div>
-          {recommendation.data ? (
-            <div className="mt-6 rounded-md border border-line bg-canvas p-4 text-sm text-taupe">
-              Strategy: {recommendation.data.recommendation_strategy} | Best single store: {recommendation.data.best_single_store}
-            </div>
-          ) : null}
-        </div>
-      </section>
-      <section className="mt-8 grid gap-6 xl:grid-cols-[1fr_1fr]">
-        <div className="panel p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="eyebrow">Price alerts</h2>
-            <button className="btn-quiet" onClick={() => void downloadSavingsReportCsv(token)} type="button">Export Savings CSV</button>
-          </div>
-          <div className="mt-4 space-y-3">
-            {(summaryData?.notifications || []).map((notification, index) => (
-              <div className="soft-card p-3" key={`${notification.title}-${index}`}>
-                <div className="font-semibold text-taupe">{notification.title}</div>
-                <div className="mt-1 text-sm text-steel">{notification.message}</div>
-              </div>
-            ))}
-            {!summaryData?.notifications?.length ? <p className="text-sm text-steel">No current price alerts.</p> : null}
+            {!topSavings.data?.length ? <p className="text-sm text-steel">No item-level opportunities yet.</p> : null}
           </div>
         </div>
+
         <div className="panel p-5">
           <h2 className="eyebrow">Prediction accuracy</h2>
           {summaryData?.prediction_accuracy ? (
@@ -225,6 +254,7 @@ function DashboardScreen() {
           )}
         </div>
       </section>
+
       <section className="mt-8 grid gap-6 xl:grid-cols-[1fr_1fr]">
         <div className="panel p-5">
           <h2 className="eyebrow">Savings leaderboard</h2>
@@ -235,17 +265,36 @@ function DashboardScreen() {
                 <div className="font-serif text-2xl text-taupe">{formatMoney(entry.savings, summaryData?.currency_symbol)}</div>
               </div>
             ))}
+            {!report.data?.leaderboard?.length ? <p className="text-sm text-steel">Leaderboard data will appear after savings reports are generated.</p> : null}
           </div>
         </div>
         <div className="panel p-5">
           <h2 className="eyebrow">Region</h2>
           <p className="mt-3 font-serif text-3xl text-taupe">{summaryData?.region || "india"}</p>
-          <p className="mt-2 text-sm text-steel">Currency is currently {summaryData?.currency_code || "INR"} and pricing/reporting surfaces now follow the active demo region.</p>
+          <p className="mt-2 text-sm text-steel">Currency is currently {summaryData?.currency_code || "INR"} and pricing/reporting surfaces follow the active demo region.</p>
         </div>
       </section>
-      <section className="mt-8">
-        <ManualReceiptForm token={token} onCreated={refreshCore} />
+
+      <section className="panel mt-8 p-5">
+        <div className="flex items-center justify-between">
+          <h2 className="eyebrow">Price alerts</h2>
+          <p className="text-sm text-steel">{summaryData?.notifications?.length || 0} active notifications</p>
+        </div>
+        <div className="mt-4 space-y-3">
+          {(summaryData?.notifications || []).map((notification, index) => (
+            <div className="soft-card p-3" key={`${notification.title}-${index}`}>
+              <div className="font-semibold text-taupe">{notification.title}</div>
+              <div className="mt-1 text-sm text-steel">{notification.message}</div>
+            </div>
+          ))}
+          {!summaryData?.notifications?.length ? <p className="text-sm text-steel">No current price alerts.</p> : null}
+        </div>
       </section>
+
+      <section className="mt-8">
+        <ManualReceiptForm onCreated={refreshCore} />
+      </section>
+
       <section className="panel mt-8 overflow-x-auto p-5">
         <h2 className="eyebrow">Receipt review</h2>
         <table className="data-table mt-4">
@@ -262,7 +311,7 @@ function DashboardScreen() {
               <tr key={receipt.id}>
                 <td className="font-medium text-taupe">{receipt.store_name}</td>
                 <td>{receipt.purchase_date}</td>
-                <td className="font-serif text-xl text-taupe">₹{receipt.total_amount.toFixed(0)}</td>
+                <td className="font-serif text-xl text-taupe">{formatMoney(receipt.total_amount, summaryData?.currency_symbol)}</td>
                 <td>
                   {receipt.items.length}
                   {receipt.file_name ? <span className="ml-2 text-xs text-steel">• {receipt.file_name}</span> : null}
@@ -275,7 +324,6 @@ function DashboardScreen() {
     </AppShell>
   );
 }
-
 
 export default function DashboardPage() {
   return (

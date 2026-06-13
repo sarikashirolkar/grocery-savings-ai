@@ -3,6 +3,11 @@ export type LoginResponse = {
   token_type: string;
 };
 
+export type ReceiptPreview = {
+  raw_text?: string | null;
+  items: ReceiptItem[];
+};
+
 export type Summary = {
   bills_uploaded: number;
   monthly_grocery_spend: number;

@@ -80,10 +80,9 @@ front/                   Uploaded design/prototype bundle used as a design refer
 - CORS is restricted to configured frontend origins.
 - Browser auth now uses an `httpOnly` cookie. Bearer tokens are still accepted for API clients and tests.
 - Alembic is the migration path. The app no longer drops and recreates tables on startup.
+- Migrations and demo seeding are now explicit workflows by default. Startup only runs them when opted in through environment flags.
 
 ## Environment Variables
-
-Copy `backend/.env.example` to `backend/.env` and adjust values as needed.
 
 Important variables:
 
@@ -96,6 +95,8 @@ DEMO_REGION=india
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 MAX_UPLOAD_SIZE_BYTES=10485760
 RECEIPT_UPLOAD_DIR=./storage/receipts
+RUN_MIGRATIONS_ON_STARTUP=false
+SEED_DEMO_ON_STARTUP=false
 ANTHROPIC_API_KEY=
 RECEIPT_EXTRACTION_MODEL=claude-opus-4-8
 ```
@@ -114,11 +115,19 @@ cd backend
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
+python -m app.bootstrap migrate
+python -m app.bootstrap seed-demo --force
 uvicorn app.main:app --reload
 ```
 
 The backend runs on `http://127.0.0.1:8000`.
+
+If you prefer the old demo convenience for local-only work, set:
+
+```bash
+RUN_MIGRATIONS_ON_STARTUP=true
+SEED_DEMO_ON_STARTUP=true
+```
 
 ### Frontend
 

@@ -12,7 +12,7 @@ type FormValues = {
 };
 
 
-export function LoginForm({ onLoggedIn }: { onLoggedIn: (token: string) => void }) {
+export function LoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, formState: { isSubmitting } } = useForm<FormValues>({
     defaultValues: {
@@ -25,10 +25,7 @@ export function LoginForm({ onLoggedIn }: { onLoggedIn: (token: string) => void 
     setError(null);
     try {
       await login(values.email, values.password);
-      try {
-        window.localStorage.removeItem("grocery-token");
-      } catch {}
-      onLoggedIn("cookie");
+      onLoggedIn();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Login failed");
     }

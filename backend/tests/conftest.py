@@ -12,3 +12,5 @@ if TEST_DB.exists():
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB}"
 os.environ["DEBUG"] = "true"
 os.environ["SECRET_KEY"] = "test-secret-key"
+os.environ["RUN_MIGRATIONS_ON_STARTUP"] = "true"
+os.environ["SEED_DEMO_ON_STARTUP"] = "true"

@@ -44,13 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <button
               className="text-sm text-steel transition hover:text-taupe"
               onClick={async () => {
-                try {
-                  await logout();
-                } finally {
-                  try {
-                    window.localStorage.removeItem("grocery-token");
-                  } catch {}
-                }
+                await logout();
                 router.refresh();
                 window.location.href = "/buy";
               }}

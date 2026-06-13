@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { AppShell } from "@/components/app-shell";
@@ -9,11 +8,7 @@ import { getReceipts } from "@/lib/api";
 
 
 function ReceiptsScreen() {
-  const [token, setToken] = useState("");
-  useEffect(() => {
-    setToken(window.localStorage.getItem("grocery-token") || "cookie");
-  }, []);
-  const receipts = useQuery({ queryKey: ["receipts-page", token], queryFn: () => getReceipts(token), enabled: !!token });
+  const receipts = useQuery({ queryKey: ["receipts-page"], queryFn: () => getReceipts() });
 
   return (
     <AppShell>

@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
@@ -10,6 +12,7 @@ from app.services.analytics import analyze_patterns, current_prediction_month, g
 from app.services.extraction import extract_receipt_batch, extract_receipt_items
 from app.services.file_storage import save_receipt_file
 from app.services.ocr import extract_text_from_file, validate_upload
+from app.services.parser import infer_category, normalize_name
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
 
@@ -83,6 +86,23 @@ def _persist_receipt(
     return receipt
 
 
+def _validated_receipt_items(items_payload: list[dict] | None, *, store_name: str, purchase_date) -> list[ReceiptItemCreate] | None:
+    if not items_payload:
+        return None
+    return [
+        ReceiptItemCreate.model_validate(
+            {
+                **item,
+                "normalized_item_name": item.get("normalized_item_name") or normalize_name(item.get("item_name") or ""),
+                "category": item.get("category") or infer_category(item.get("item_name") or ""),
+                "store_name": item.get("store_name") or store_name,
+                "purchase_date": item.get("purchase_date") or purchase_date,
+            }
+        )
+        for item in items_payload
+    ]
+
+
 @router.post("/upload", response_model=ReceiptOut)
 async def upload_receipt(
     store_name: str = Form(...),
@@ -91,6 +111,7 @@ async def upload_receipt(
     upload_type: str = Form(default="manual"),
     raw_text: str | None = Form(default=None),
     total_amount: float = Form(default=0),
+    items_json: str | None = Form(default=None),
     file: UploadFile | None = File(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -123,7 +144,15 @@ async def upload_receipt(
     elif extracted_text:
         extraction_method = "text_manual"
 
-    items = extract_receipt_items(extracted_text or "", store_name=store_name, purchase_date=parsed_date)
+    provided_items = None
+    if items_json:
+        try:
+            provided_items = json.loads(items_json)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail="Invalid reviewed receipt items payload.") from exc
+    items = _validated_receipt_items(provided_items, store_name=store_name, purchase_date=parsed_date) or extract_receipt_items(
+        extracted_text or "", store_name=store_name, purchase_date=parsed_date
+    )
     receipt = _persist_receipt(
         db=db,
         current_user=current_user,

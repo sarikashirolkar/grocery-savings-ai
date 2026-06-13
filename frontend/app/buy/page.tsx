@@ -17,7 +17,6 @@ import {
   downloadBuyPlanCsv,
   generatePrediction,
   getBuyPlan,
-  getPrediction,
   removeShoppingItem,
   searchPrices,
   selectStoreForItem,
@@ -27,35 +26,25 @@ import type { ShoppingListItem } from "@/lib/types";
 
 
 function BuyPageScreen() {
-  const [token, setToken] = useState("");
   const [search, setSearch] = useState("");
   const [activeItemKey, setActiveItemKey] = useState("");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    setToken(window.localStorage.getItem("grocery-token") || "cookie");
     setRecentSearches(JSON.parse(window.localStorage.getItem("grocery-recent-searches") || "[]"));
   }, []);
 
   const plan = useQuery({
-    queryKey: ["buy-plan", token],
-    queryFn: () => getBuyPlan(token),
-    enabled: !!token,
-    retry: false
-  });
-
-  const prediction = useQuery({
-    queryKey: ["buy-prediction", token],
-    queryFn: () => getPrediction(token),
-    enabled: !!token,
+    queryKey: ["buy-plan"],
+    queryFn: () => getBuyPlan(),
     retry: false
   });
 
   const searchResults = useQuery({
-    queryKey: ["catalog-search", token, search],
-    queryFn: () => searchPrices(token, search),
-    enabled: !!token && search.trim().length > 0
+    queryKey: ["catalog-search", search],
+    queryFn: () => searchPrices(search),
+    enabled: search.trim().length > 0
   });
 
   const activeItem = plan.data?.shopping_list.items.find((item) => item.normalized_item_name === activeItemKey);
@@ -73,19 +62,18 @@ function BuyPageScreen() {
 
   const refreshPlan = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["buy-plan", token] }),
-      queryClient.invalidateQueries({ queryKey: ["buy-prediction", token] }),
-      queryClient.invalidateQueries({ queryKey: ["catalog-search", token] })
+      queryClient.invalidateQueries({ queryKey: ["buy-plan"] }),
+      queryClient.invalidateQueries({ queryKey: ["catalog-search"] })
     ]);
   };
 
   const setupMutation = useMutation({
     mutationFn: async () => {
       try {
-        await syncShoppingList(token);
+        await syncShoppingList();
       } catch {
-        await generatePrediction(token);
-        await syncShoppingList(token);
+        await generatePrediction();
+        await syncShoppingList();
       }
     },
     onSuccess: refreshPlan
@@ -93,7 +81,7 @@ function BuyPageScreen() {
 
   const addItemMutation = useMutation({
     mutationFn: (payload: { item_name: string; normalized_item_name: string }) =>
-      addShoppingItem(token, {
+      addShoppingItem({
         ...payload,
         predicted_quantity: 1,
         average_price_usually_paid: 0,
@@ -103,17 +91,17 @@ function BuyPageScreen() {
   });
 
   const selectMutation = useMutation({
-    mutationFn: (payload: { shopping_list_item_id: number; store_name: string }) => selectStoreForItem(token, payload),
+    mutationFn: (payload: { shopping_list_item_id: number; store_name: string }) => selectStoreForItem(payload),
     onSuccess: refreshPlan
   });
 
   const cheapestMutation = useMutation({
-    mutationFn: () => chooseCheapestForAll(token),
+    mutationFn: () => chooseCheapestForAll(),
     onSuccess: refreshPlan
   });
 
   const singleStoreMutation = useMutation({
-    mutationFn: (storeName: string) => chooseSingleStoreForAll(token, storeName),
+    mutationFn: (storeName: string) => chooseSingleStoreForAll(storeName),
     onSuccess: refreshPlan
   });
 
@@ -141,7 +129,7 @@ function BuyPageScreen() {
     if (existing) {
       setActiveItemKey(existing.normalized_item_name);
     } else {
-      const single = await compareSingleItem(token, normalized, 1);
+      const single = await compareSingleItem(normalized, 1);
       if (single.item_name) {
         await addItemMutation.mutateAsync({
           item_name: single.item_name,
@@ -174,7 +162,7 @@ function BuyPageScreen() {
             <p className="eyebrow">Current cycle</p>
             <p className="mt-1 font-serif text-3xl font-medium text-taupe">{plan.data?.shopping_list.items.length || 0} items</p>
           </div>
-          <button className="btn-quiet" onClick={() => void downloadBuyPlanCsv(token)} type="button">Export CSV</button>
+          <button className="btn-quiet" onClick={() => void downloadBuyPlanCsv()} type="button">Export CSV</button>
           <button className="btn-secondary" onClick={() => setupMutation.mutate()} type="button">
             Refresh Recommended Basket
           </button>
@@ -206,7 +194,7 @@ function BuyPageScreen() {
           comparisons={plan.data?.comparisons || []}
           items={plan.data?.shopping_list.items || []}
           onRemove={(itemId) => {
-            void removeShoppingItem(token, itemId).then(refreshPlan);
+            void removeShoppingItem(itemId).then(refreshPlan);
           }}
           onSelect={(item) => setActiveItemKey(item.normalized_item_name)}
         />

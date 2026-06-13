@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     auth_cookie_name: str = "grocery_access_token"
     auth_cookie_secure: bool = False
     auth_cookie_samesite: str = "lax"
+    run_migrations_on_startup: bool = False
+    seed_demo_on_startup: bool = False
     # Receipt line-item extraction via Claude. When no API key is configured
     # (env or this setting), the parser falls back to the regex extractor.
     anthropic_api_key: str | None = None

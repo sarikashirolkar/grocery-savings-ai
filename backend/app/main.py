@@ -1,37 +1,21 @@
 from contextlib import asynccontextmanager
-from pathlib import Path
 
-from alembic import command
-from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import auth, dashboard, demo, patterns, prediction, prices, receipts, recommendations, shopping
+from app.bootstrap import ensure_runtime_dirs, run_migrations, seed_demo
 from app.core.config import settings
-from app.db.base import Base
-from app.db.session import engine, SessionLocal
-from app.services.runtime_migrations import apply_sqlite_compat_columns
-from app.services.seed import seed_demo_data
-
-
-def _run_migrations() -> None:
-    Base.metadata.create_all(bind=engine)
-    apply_sqlite_compat_columns(engine)
-    alembic_cfg = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
-    alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
-    command.upgrade(alembic_cfg, "head")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     settings.validate_runtime()
-    Path(settings.receipt_upload_dir).mkdir(parents=True, exist_ok=True)
-    _run_migrations()
-    db = SessionLocal()
-    try:
-        seed_demo_data(db)
-        yield
-    finally:
-        db.close()
+    ensure_runtime_dirs()
+    if settings.run_migrations_on_startup:
+        run_migrations()
+    if settings.seed_demo_on_startup:
+        seed_demo()
+    yield
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
